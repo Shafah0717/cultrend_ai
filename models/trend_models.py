@@ -28,7 +28,7 @@ class TrendPrediction(BaseModel):
     timeline_days:float
     target_audience:List[str]
     cultural_reasoning:str
-    market_oppurtunity:str
+    market_opportunity:str
     created_at:datetime=datetime.now()
 
 class TrendAnalysis(BaseModel):
