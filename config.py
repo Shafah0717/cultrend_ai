@@ -9,7 +9,7 @@ class Settings:
     def __init__(self):
         self.qloo_api_key=os.getenv("QLOO_API_KEY")
         self.google_api_key=os.getenv("GOOGLE_API_KEY")
-        self.debug=os.getenv("DEBUG","FALSE").lower()="true"
+        self.debug=os.getenv("DEBUG","FALSE").lower()=="true"
 
         #api endpoint
 

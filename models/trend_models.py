@@ -17,7 +17,7 @@ class CulturalProfile(BaseModel):
     profile_id:str
     cultural_segments:List[str]
     cross_domain_connections:Dict[str,List[str]]
-    behavioral_indicator:Dict[str,float]
+    behavioral_indicators:Dict[str,float]
     confidence_score:float
     
 class TrendPrediction(BaseModel):
@@ -37,5 +37,5 @@ class TrendAnalysis(BaseModel):
    timeframe:str
    total_predictions:int
    average_confidence:float
-   
+
 
