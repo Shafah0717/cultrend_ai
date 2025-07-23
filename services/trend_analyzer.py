@@ -65,18 +65,75 @@ class TrendAnalyzer:
              for profile in community_data:
                  community_interests.extend(profile.get("emerging_interest",[]))
              for prediction in predictions:
-                 community_alignment = self._calculate_community_alignment(prediction,community_interests)
+                 community_alignment = self._calculate_commiunity_alignment(prediction,community_interests)
                  if community_alignment > 0.5:
                      prediction.confidence_score = min(95,prediction.confidence_score * 1.1)
                      prediction.cultural_reasoning += f"This Trend  aligns with emerging interests in similar cultural communities (alignment:{community_alignment:.0%}.)"
 
              return predictions
      def _calculate_commiunity_alignment(self,prediction: TrendPrediction, community_interests: List[str]) -> float:
-         prediction_words = prediction.predicted_trend.lower.split()
+         prediction_words = prediction.predicted_trend.lower().split()
          match=0
          for interest in community_interests:
              interest_words = interest.lower().split()
              if any(word in prediction_words for word in interest_words):
                 matches += 1
          return matches / len(community_interests) if community_interests else 0
-      
+     def _score_and_rank_predictions(self,predictions: List[TrendPrediction]) -> List[TrendPrediction]:
+         """Apply final scoring and ranking to predictions""" 
+         for prediction in predictions:
+             timeline_score = max(0.5,(180 - prediction.timeline_days)/180)
+             market_keywords = ["growing","emerging","untapped","opportunity"]
+             market_score = sum(1 for keyword in market_keywords if keyword in prediction.market_opportunity.lower()) / len(market_keywords)
+             
+             audience_score =  min(1.0, len(prediction.target_audience)/3)
+             final_score = (
+                     prediction.confidence_score * 0.5 +
+                     timeline_score * 20 +
+                     market_score * 15 +
+                     audience_score * 15
+             )
+             prediction.confidence_score = min(95, final_score)
+
+             return sorted(predictions, key=lambda p: p.confidence_score, reverse=True)
+     def _create_empty_analysis(self, timeframe: str) -> TrendAnalysis:
+            """Create empty analysis when cultural profile creation fails"""
+            return TrendAnalysis(
+               predictions=[],
+               analysis_date=datetime.now(),
+               timeframe=timeframe,
+               total_predictions=0,
+               average_confidence=0
+            )
+async def test_complete_pipeline():
+         """Test the complete trend analysis pipeline"""
+         test_preferences = UserPreferences(
+            music_genres=["indie rock", "electronic", "folk"],
+            dining_preferences=["artisanal coffee", "plant-based", "local sourcing"],
+            fashion_styles=["minimalist", "sustainable", "vintage-inspired"],
+            entertainment_types=["independent films", "live music", "podcasts"],
+            lifestyle_choices=["sustainable living", "wellness", "remote work"]
+         )
+         analyzer = TrendAnalyzer()
+         analysis = await analyzer.predict_trends(test_preferences, "90d")
+
+         print("\n🎯 TREND ANALYSIS RESULTS")
+         print("=" * 50)
+         print(f"Timeframe: {analysis.timeframe}")
+         print(f"Total Predictions: {analysis.total_predictions}")
+         print(f"Average Confidence: {analysis.average_confidence:.1f}%")
+
+         print("\n📈 TOP PREDICTIONS:")
+         for i, prediction in enumerate(analysis.predictions[:3], 1):
+                 print(f"\n{i}. {prediction.predicted_trend}")
+                 print(f"   Category: {prediction.product_category}")
+                 print(f"   Confidence: {prediction.confidence_score:.0f}%")
+                 print(f"   Timeline: {prediction.timeline_days} days")
+                 print(f"   Target: {', '.join(prediction.target_audience)}")
+                 print(f"   Reasoning: {prediction.cultural_reasoning[:100]}...")
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(test_complete_pipeline()) 
+
+
