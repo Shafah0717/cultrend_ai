@@ -160,6 +160,7 @@ async def test_qloo_service():
     else:
         print("❌ Qloo integration failed")
 
-# Uncomment to test:
-#import asyncio
-#asyncio.run(test_qloo_service())
+if __name__ == "__main__":
+    import asyncio
+    print("Starting qloo service test...")
+    asyncio.run(test_qloo_service())

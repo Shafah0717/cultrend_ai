@@ -83,50 +83,31 @@ class GeminiService:
 async def test_gemini_service():
     """Test Gemini service with sample data"""
     
-    print("🤖 Testing Gemini LLM Service...")
-    print("=" * 40)
+    from models.trend_models import CulturalProfile
     
-    try:
-        # Import models
-        from models.trend_models import CulturalProfile
-        
-        # Create sample cultural profile
-        sample_profile = CulturalProfile(
-            profile_id="test_gemini_123",
-            cultural_segments=["indie culture", "sustainability advocates"],
-            cross_domain_connections={
-                "music": ["indie rock", "folk"],
-                "fashion": ["vintage", "minimalist"],
-                "dining": ["artisanal", "local"]
-            },
-            behavioral_indicators={"early_adopter": 0.8, "influence": 0.6},
-            confidence_score=85.0
-        )
-        
-        # Test the service
-        print("Creating GeminiService instance...")
-        gemini_service = GeminiService()
-        
-        print("Running trend analysis...")
-        predictions = await gemini_service.analyze_cultural_trends(sample_profile, "90d")
-        
-        if predictions:
-            print("✅ Gemini integration successful!")
-            print(f"   Generated {len(predictions)} predictions")
-            
-            for i, pred in enumerate(predictions, 1):
-                print(f"\n{i}. {pred.predicted_trend}")
-                print(f"   Category: {pred.product_category}")
-                print(f"   Confidence: {pred.confidence_score}%")
-                print(f"   Timeline: {pred.timeline_days} days")
-                print(f"   Target: {', '.join(pred.target_audience[:2])}")
-        else:
-            print("❌ No predictions generated")
-            
-    except Exception as e:
-        print(f"❌ Test failed with error: {e}")
-        import traceback
-        traceback.print_exc()
+    # Create sample cultural profile
+    sample_profile = CulturalProfile(
+        profile_id="test_gemini_123",
+        cultural_segments=["indie culture", "sustainability advocates", "minimalists"],
+        cross_domain_connections={
+            "music": ["indie rock", "folk"],
+            "fashion": ["vintage", "minimalist"],
+            "dining": ["artisanal", "local"]
+        },
+        behavioral_indicators={"early_adopter": 0.8, "influence": 0.6},
+        confidence_score=85.0
+    )
+    
+    gemini_service = GeminiService()
+    predictions = await gemini_service.analyze_cultural_trends(sample_profile, "90d")
+    
+    if predictions:
+        print("✅ Gemini integration successful!")
+        for pred in predictions[:2]:  # Show first 2 predictions
+            print(f"Trend: {pred.predicted_trend}")
+            print(f"Confidence: {pred.confidence_score}%")
+    else:
+        print("❌ Gemini integration failed")
 
 # Run test when file is executed directly
 if __name__ == "__main__":
