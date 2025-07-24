@@ -1,0 +1,70 @@
+{
+  "indie_culture_demo": {
+    "preferences": {
+      "music_genres": [
+        "indie rock",
+        "folk",
+        "ambient"
+      ],
+      "dining_preferences": [
+        "artisanal coffee",
+        "plant-based",
+        "local sourcing"
+      ],
+      "fashion_styles": [
+        "vintage",
+        "minimalist",
+        "sustainable"
+      ],
+      "entertainment_types": [
+        "indie films",
+        "live music",
+        "podcasts"
+      ],
+      "lifestyle_choices": [
+        "sustainable living",
+        "mindfulness",
+        "remote work"
+      ]
+    },
+    "expected_trends": [
+      "Sustainable tech accessories with vintage aesthetics",
+      "Artisanal wellness products for remote workers",
+      "Locally-sourced functional beverages with indie branding"
+    ]
+  },
+  "urban_trendsetter_demo": {
+    "preferences": {
+      "music_genres": [
+        "hip-hop",
+        "jazz",
+        "R&B"
+      ],
+      "dining_preferences": [
+        "street food",
+        "fusion cuisine",
+        "craft cocktails"
+      ],
+      "fashion_styles": [
+        "streetwear",
+        "luxury brands",
+        "sneakers"
+      ],
+      "entertainment_types": [
+        "sports",
+        "gaming",
+        "social media"
+      ],
+      "lifestyle_choices": [
+        "fitness",
+        "urban living",
+        "nightlife"
+      ]
+    },
+    "expected_trends": [
+      "Tech-enhanced fitness gear with streetwear aesthetics",
+      "Fusion street food with premium ingredients",
+      "Gaming-inspired luxury accessories"
+    ]
+  }
+}
