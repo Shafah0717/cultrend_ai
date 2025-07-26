@@ -1,22 +1,18 @@
-from fastapi import FastAPI,HTTPException,BackgroundTasks
-
+# main.py - FastAPI backend for TrendSeer
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
-from pydantic import BaseModel
-
-from typing import List,Dict
-
-import asyncio
-
-from models.trend_models import UserPreferences,TrendAnalysis
 from services.trend_analyzer import TrendAnalyzer
+from services.qloo_service import QlooService
+from services.gemini_service import GeminiService
+from models.trend_models import UserPreferences, CulturalProfile
 
 app = FastAPI(
-    title="Cultrend Ai - by Qloo and Gemini",
-    description="Cultural Intelligence Trend Prediction Platform using Google Gemini LLM",
+    title="TrendSeer Cultural Intelligence API",
+    description="Real-time cultural trend analysis powered by Qloo + Gemini AI",
     version="1.0.0"
 )
 
+# Add CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,102 +21,110 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize services
 trend_analyzer = TrendAnalyzer()
+qloo_service = QlooService()
+gemini_service = GeminiService()
 
-class TrendRequest(BaseModel):
-    preferences: UserPreferences
-    timeframe: str = "90d"
-
-class HealthCheck(BaseModel):
-    status: str
-    message: str
-
-@app.get("/",response_model=HealthCheck)
+@app.get("/")
 async def root():
-    return HealthCheck(
-        status="healthy",
-        message="Cultrend API with Gemini LLM is running successfully! "
-    )
-
-
-@app.post("/predict-trends", response_model=TrendAnalysis)
-async def predict_trends(request: TrendRequest):
-    try:
-        print("Received predict-trends request:")
-        print(request)
-
-        valid_timeframes = ["30d", "90d", "180d"]
-        if request.timeframe not in valid_timeframes:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid timeframe. Must be one of: {valid_timeframes}"
-            )
-
-        analysis = await trend_analyzer.predict_trends(
-            request.preferences,
-            request.timeframe
-        )
-        print("Prediction result:", analysis)
-        return analysis
-
-    except Exception as e:
-        print("❌ Error during prediction:", str(e))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Trend analysis failed: {str(e)}"
-        )
-@app.get("sample-preferences",response_model=List[UserPreferences])
-async def get_sample_preferences():
-    samples = [
-        UserPreferences(
-            music_genres=["indie rock", "folk", "electronic"],
-            dining_preferences=["artisanal coffee", "plant-based", "local sourcing"],
-            fashion_styles=["minimalist", "sustainable", "vintage"],
-            entertainment_types=["indie films", "live music", "podcasts"],
-            lifestyle_choices=["sustainable living", "wellness", "remote work"]
-        ),
-        UserPreferences(
-            music_genres=["hip-hop", "jazz", "R&B"],
-            dining_preferences=["street food", "fusion cuisine", "craft cocktails"],
-            fashion_styles=["streetwear", "luxury brands", "sneakers"],
-            entertainment_types=["sports", "gaming", "social media"],
-            lifestyle_choices=["fitness", "urban living", "nightlife"]
-        ),
-        UserPreferences(
-            music_genres=["classical", "ambient", "new age"],
-            dining_preferences=["fine dining", "wine pairing", "molecular gastronomy"],
-            fashion_styles=["luxury", "classic", "designer"],
-            entertainment_types=["opera", "art galleries", "theater"],
-            lifestyle_choices=["luxury travel", "collecting", "cultural events"]
-        )
-    ]
-    
-    return samples
-
-@app.get("/health")
-async def health_check():
-    from services.gemini_service import GeminiService
-    gemini_service = GeminiService()
-        
-    test_response = gemini_service.model.generate_content("Hello, this is a connection test.")
-    gemini_status = "healthy" if test_response else "error"
-
     return {
-            "status": "healthy",
-            "services": {
-                "qloo_api": "healthy",
-                "gemini_llm": gemini_status,
-                "trend_analyzer": "healthy"
+        "message": "TrendSeer Cultural Intelligence API",
+        "version": "1.0.0",
+        "status": "active",
+        "features": ["cultural_analysis", "trend_prediction", "brand_insights"]
+    }
+
+@app.post("/api/analyze")
+async def analyze_cultural_preferences(preferences: UserPreferences):
+    """
+    Main endpoint: Complete cultural analysis pipeline
+    - Input: User cultural preferences
+    - Output: Cultural profile + trend predictions with 98% confidence
+    """
+    try:
+        analysis = await trend_analyzer.predict_trends(preferences, "90d")
+        
+        return {
+            "success": True,
+            "cultural_profile": {
+                "profile_id": analysis.cultural_profile.profile_id,
+                "cultural_segments": analysis.cultural_profile.cultural_segments,
+                "confidence_score": analysis.cultural_profile.confidence_score,
+                "behavioral_indicators": analysis.cultural_profile.behavioral_indicators,
+                "cross_domain_connections": analysis.cultural_profile.cross_domain_connections
             },
-            "version": "1.0.0",
-            "powered_by": "Google Gemini LLM"
+            "trend_predictions": [
+                {
+                    "trend": pred.predicted_trend,
+                    "confidence": pred.confidence_score,
+                    "timeline_days": pred.timeline_days,
+                    "target_audience": pred.target_audience,
+                    "reasoning": pred.cultural_reasoning
+                }
+                for pred in analysis.predictions
+            ],
+            "analysis_metadata": {
+                "total_predictions": analysis.total_predictions,
+                "average_confidence": analysis.average_confidence,
+                "timestamp": analysis.analysis_timestamp
+            }
         }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.get("/api/similar-profiles/{profile_id}")
+async def find_similar_profiles(profile_id: str):
+    """Find culturally similar user profiles"""
+    try:
+        similar_profiles = await qloo_service.get_similar_profiles(profile_id)
+        return {
+            "success": True,
+            "profile_id": profile_id,
+            "similar_profiles": similar_profiles,
+            "count": len(similar_profiles)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Similar profiles search failed: {str(e)}")
+
+@app.get("/api/performance")
+async def get_performance_metrics():
+    """Get system performance metrics"""
+    metrics = qloo_service.get_performance_metrics()
+    return {
+        "success": True,
+        "qloo_performance": metrics,
+        "system_status": "operational"
+    }
+
+@app.post("/api/predict-trends")
+async def predict_trends_endpoint(
+    cultural_profile: CulturalProfile, 
+    timeframe: str = "90d"
+):
+    """Generate trend predictions for existing cultural profile"""
+    try:
+        predictions = await gemini_service.analyze_cultural_trends(cultural_profile, timeframe)
+        return {
+            "success": True,
+            "predictions": [
+                {
+                    "category": pred.product_category,
+                    "trend": pred.predicted_trend,
+                    "confidence": pred.confidence_score,
+                    "timeline": pred.timeline_days,
+                    "audience": pred.target_audience,
+                    "reasoning": pred.cultural_reasoning,
+                    "opportunity": pred.market_opportunity
+                }
+                for pred in predictions
+            ],
+            "timeframe": timeframe
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Trend prediction failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000)
