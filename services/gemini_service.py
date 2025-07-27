@@ -6,6 +6,7 @@ from models.trend_models import CulturalProfile, TrendPrediction
 import json
 from datetime import datetime, timedelta
 
+
 class GeminiService:
     """Service to interact with Google Gemini for trend analysis with safety handling"""
     
@@ -101,6 +102,60 @@ class GeminiService:
         except Exception as e:
             print(f"⚠️ Gemini API error: {e}")
             return self._create_enhanced_sample_predictions(cultural_profile, timeframe)
+
+    # ADDED: Missing method for brand identity generation
+    async def analyze_cultural_trends_with_custom_prompt(self, cultural_profile: CulturalProfile, custom_prompt: str) -> str:
+        """
+        Generate response using custom prompt for brand identity generation.
+        Returns raw text response for custom parsing by the caller.
+        """
+        try:
+            print("🤖 Sending custom prompt to Gemini AI...")
+            
+            # Call Gemini with the custom prompt
+            response = self.model.generate_content(
+                custom_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=1500,
+                ),
+                safety_settings=[
+                    {
+                        "category": "HARM_CATEGORY_HATE_SPEECH",
+                        "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_HARASSMENT",
+                        "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                    }
+                ]
+            )
+            
+            print("✅ Gemini API call completed")
+            
+            # Handle response safely
+            response_text = self._handle_gemini_response(response)
+            
+            if response_text:
+                print("✅ Custom prompt processing completed")
+                return response_text
+            else:
+                print("⚠️ Could not extract valid response from Gemini")
+                return ""
+                
+        except Exception as e:
+            print(f"❌ Error in analyze_cultural_trends_with_custom_prompt: {e}")
+            raise e
     
     def _handle_gemini_response(self, response) -> Optional[str]:
         """Safely extract text from Gemini response with comprehensive error handling"""
@@ -234,10 +289,9 @@ Please provide your market analysis in the specified JSON format:"""
             cleaned = response_text.strip()
             
             # Remove markdown formatting if present
-            if cleaned.startswith("```json") or cleaned.endswith("```"):
+            if cleaned.startswith("``````"):
                 lines = cleaned.split('\n')
                 cleaned = '\n'.join(lines[1:-1])
-            
             
             # Find JSON boundaries
             start_idx = cleaned.find('{')
@@ -302,7 +356,35 @@ Please provide your market analysis in the specified JSON format:"""
         except Exception as e:
             print(f"❌ Error parsing Gemini response: {e}")
             return []
-    
+
+    # MOVED: Brand identity prompt function inside the class
+    def create_brand_identity_prompt(self, cultural_profile: CulturalProfile) -> str:
+        """Convert the cultural profile to a readable string for brand identity generation"""
+        profile_summary = f"""
+        - Cultural Segments: {', '.join(cultural_profile.cultural_segments)}
+        - Key Affinities (Brands): {', '.join(cultural_profile.cross_domain_connections.get('brands', []))}
+        - Key Affinities (Artists): {', '.join(cultural_profile.cross_domain_connections.get('artists', []))}
+        - Behavioral Indicators: Early Adopter ({cultural_profile.behavioral_indicators.get('early_adopter', 'N/A')}), Cultural Openness ({cultural_profile.behavioral_indicators.get('cultural_openness', 'N/A')})
+        """
+
+        prompt = f"""
+        Act as an expert brand strategist. Based on the following cultural taste profile, generate a complete personal brand identity kit. The user's cultural DNA is defined by these characteristics:
+        {profile_summary}
+
+        Your task is to synthesize this cultural data into a cohesive and compelling personal brand. Generate the following assets and provide the output ONLY in a valid JSON format that matches this Pydantic model:
+
+        class BrandIdentityKit(BaseModel):
+            brand_name: str
+            tagline: str
+            mission_statement: str
+            core_keywords: List[str]
+            color_palette: Dict[str, str] # e.g., {{"primary": "#HEXCODE", "accent_1": "#HEXCODE"}}
+            social_media_bio: str
+
+        Analyze the user's affinities (e.g., minimalist fashion, indie music, sustainable values) to inform the brand's name, voice, and aesthetic. The color palette should reflect their taste. The mission statement and bio must capture their core values. Be creative and insightful.
+        """
+        return prompt
+
     def _get_default_value(self, field: str):
         """Get default values for missing fields"""
         defaults = {
@@ -440,6 +522,7 @@ Please provide your market analysis in the specified JSON format:"""
             print(f"❌ Gemini connection test error: {e}")
             return False
 
+
 # Test functions - MUST be outside the class
 async def test_gemini_service():
     """Comprehensive test of Gemini service with real responses"""
@@ -503,6 +586,7 @@ async def test_gemini_service():
         import traceback
         traceback.print_exc()
 
+
 async def test_safety_scenarios():
     """Test various scenarios that might trigger safety filters"""
     
@@ -537,7 +621,7 @@ async def test_safety_scenarios():
     
     service = GeminiService()
     
-    for test_case in test_profiles:
+    for test_case in test_profiles: 
         print(f"\n🧪 Testing: {test_case['name']}")
         predictions = await service.analyze_cultural_trends(test_case['profile'], "90d")
         print(f"   📊 Result: {len(predictions)} predictions generated")
@@ -546,6 +630,7 @@ async def test_safety_scenarios():
             print(f"   ✅ Success: {predictions[0].predicted_trend[:60]}...")
         else:
             print("   ⚠️ No predictions (likely safety filtered)")
+
 
 # Run tests when file is executed directly
 if __name__ == "__main__":

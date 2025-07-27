@@ -2,6 +2,7 @@
 import aiohttp
 import asyncio
 import json
+import random
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from config import settings
@@ -20,6 +21,40 @@ class QlooService:
     """
     
     # Class constants for API configuration
+    # Add this method to your QlooService class
+    def debug_api_responses(self, combined_insights: Dict) -> None:
+        """Debug method to check what the API is actually returning"""
+        
+        print("\n🔍 QLOO DEBUG - API Response Analysis")
+        print("=" * 50)
+        
+        # Check total entities
+        total = combined_insights.get("total_entities", 0)
+        print(f"📊 Total entities found: {total}")
+        
+        # Check each entity type
+        brands = combined_insights.get("brand_entities", [])
+        artists = combined_insights.get("artist_entities", [])
+        movies = combined_insights.get("movie_entities", [])
+        places = combined_insights.get("place_entities", [])
+        
+        print(f"🏢 Brand entities: {len(brands)}")
+        for i, brand in enumerate(brands[:3]):
+            print(f"   {i+1}. {brand.get('name', 'Unknown')} (type: {brand.get('type', 'N/A')})")
+        
+        print(f"🎵 Artist entities: {len(artists)}")
+        for i, artist in enumerate(artists[:3]):
+            print(f"   {i+1}. {artist.get('name', 'Unknown')} (type: {artist.get('type', 'N/A')})")
+        
+        print(f"🎬 Movie entities: {len(movies)}")
+        print(f"📍 Place entities: {len(places)}")
+        
+        # Check data sources
+        sources = combined_insights.get("data_sources", [])
+        print(f"📈 Data sources: {sources}")
+        
+        print("=" * 50)
+
     VALID_AGE_GROUPS = [
         "24_and_younger", "25_to_29", "30_to_34", "35_to_44", 
         "45_to_54", "55_and_older", "35_and_younger", "36_to_55"
@@ -48,6 +83,7 @@ class QlooService:
             "X-Api-Key": settings.qloo_api_key,
             "Content-Type": "application/json"
         }
+        
         self.api_available = None
         self.request_timeout = 15
         self.max_retries = 2
@@ -56,7 +92,12 @@ class QlooService:
         self.api_call_count = 0
         self.successful_calls = 0
         self.failed_calls = 0
-    
+    async def get_similarity_score(self, entity1: str, entity2: str) -> float:
+        """Get similarity between two entities (simulated for demo)"""
+        # Real implementation would use:
+        # response = await self._make_enhanced_request(...)
+        # return response.get("similarity", 0.5)
+        return random.uniform(0.4, 0.92)
     async def create_cultural_profile(self, preferences: UserPreferences) -> Optional[CulturalProfile]:
         """
         Create comprehensive cultural profile using real Qloo API integration.
@@ -70,6 +111,7 @@ class QlooService:
         
         try:
             print("🔍 Creating enhanced cultural profile...")
+
             self._log_preferences_summary(preferences)
             
             # Initialize API connection if needed
@@ -109,15 +151,18 @@ class QlooService:
             demographic_insights = await self._get_demographic_insights(preferences)
             
             # Method 3: Get cultural context
+
             cultural_context = await self._get_enhanced_cultural_context(preferences)
-            
+
             # Method 4: Get cross-domain relationships
             cross_domain_data = await self._get_cross_domain_relationships(preferences)
-            
+
+
             # Combine all insights for comprehensive analysis
             combined_insights = self._combine_insights(
                 brand_insights, demographic_insights, cultural_context, cross_domain_data
             )
+
             
             if self._has_meaningful_combined_data(combined_insights):
                 print("✅ Enhanced Qloo insights successfully integrated!")
@@ -361,13 +406,34 @@ class QlooService:
     def _combine_insights(self, *insights: Optional[Dict]) -> Dict:
         """Combine multiple insight sources into unified data structure."""
         
+        print("🔍 ENTITY COMBINATION DEBUG:")
+        input_insights_debug = []
+        for i, insight in enumerate(insights):
+            if insight:
+                if isinstance(insight, dict) and "results" in insight:
+                    entity_count = len(insight.get("results", {}).get("entities", []))
+                    input_insights_debug.append(f"Input{i+1}: {entity_count} entities")
+                else:
+                    context_keys = list(insight.keys()) if isinstance(insight, dict) else ["unknown"]
+                    input_insights_debug.append(f"Input{i+1}: {context_keys} context")
+            else:
+                input_insights_debug.append(f"Input{i+1}: None")
+        
+        print(f"   📥 Raw inputs: {' | '.join(input_insights_debug)}")
+        
         combined = {
             "brand_entities": [],
             "movie_entities": [],
             "artist_entities": [],
             "place_entities": [],
             "total_entities": 0,
-            "data_sources": []
+            "data_sources": [],
+            "entities": [],  # This is critical for consolidation
+            "debug_info": {
+                "combination_timestamp": datetime.now().isoformat(),
+                "input_sources": len([i for i in insights if i is not None]),
+                "entity_breakdown": {}
+            }
         }
         
         method_names = [
@@ -380,6 +446,7 @@ class QlooService:
         ]
         
         method_index = 0
+        processing_log = []
         
         for insight in insights:
             if insight:
@@ -388,19 +455,43 @@ class QlooService:
                     entities = insight.get("results", {}).get("entities", [])
                     entity_count = len(entities)
                     
-                    for entity in entities:
-                        entity_type = entity.get("type", "")
-                        if "brand" in entity_type.lower():
-                            combined["brand_entities"].append(entity)
-                        elif "movie" in entity_type.lower():
-                            combined["movie_entities"].append(entity)
-                        elif "artist" in entity_type.lower():
-                            combined["artist_entities"].append(entity)
-                        elif "place" in entity_type.lower():
-                            combined["place_entities"].append(entity)
+                    entity_type_counts = {"brand": 0, "movie": 0, "artist": 0, "place": 0, "other": 0}
                     
-                    # ✅ FIXED: Add descriptive string instead of integer
+                    # FIXED: Process each entity with proper scope
+                    for entity in entities:
+                        try:
+                            entity_type = entity.get("type", "")
+                            entity_name = entity.get("name", "Unknown")
+                            
+                            # NEW: Use name-based classification since all types are "urn:entity"
+                            classification = self._classify_entity_by_name(entity)
+                            
+                            if classification == "brand":
+                                combined["brand_entities"].append(entity)
+                                entity_type_counts["brand"] += 1
+                            elif classification == "movie":
+                                combined["movie_entities"].append(entity)
+                                entity_type_counts["movie"] += 1
+                            elif classification == "artist":
+                                combined["artist_entities"].append(entity)
+                                entity_type_counts["artist"] += 1
+                            elif classification == "place":
+                                combined["place_entities"].append(entity)
+                                entity_type_counts["place"] += 1
+                            else:
+                                entity_type_counts["other"] += 1
+                                print(f"      ⚠️ Unclassified entity: {entity_name} (type: {entity_type})")
+                            
+                            # Add to main entities list
+                            combined["entities"].append(entity)
+                            
+                        except Exception as e:
+                            print(f"⚠️ Error processing entity {entity_name}: {e}")
+                            continue
+                    
                     method_name = method_names[method_index] if method_index < len(method_names) else f"method_{method_index+1}"
+                    processing_log.append(f"{method_name}: {entity_type_counts}")
+                    combined["debug_info"]["entity_breakdown"][method_name] = entity_type_counts
                     combined["data_sources"].append(f"{method_name}_{entity_count}_entities")
                     method_index += 1
                     
@@ -410,19 +501,83 @@ class QlooService:
                         if key in ["movies", "artists", "places"] and value:
                             entities = value.get("results", {}).get("entities", [])
                             entity_count = len(entities)
-                            combined[f"{key[:-1]}_entities"].extend(entities)
                             
-                            # ✅ FIXED: Add descriptive string for cultural context
+                            for entity in entities:
+                                try:
+                                    combined[f"{key[:-1]}_entities"].append(entity)
+                                    combined["entities"].append(entity)
+                                except Exception as e:
+                                    print(f"⚠️ Error processing cultural entity: {e}")
+                                    continue
+                            
+                            context_method = f"cultural_{key}"
+                            processing_log.append(f"{context_method}: {entity_count} entities")
+                            combined["debug_info"]["entity_breakdown"][context_method] = {key[:-1]: entity_count}
                             combined["data_sources"].append(f"cultural_{key}_{entity_count}_entities")
         
-        combined["total_entities"] = (
-            len(combined["brand_entities"]) + 
-            len(combined["movie_entities"]) + 
-            len(combined["artist_entities"]) + 
-            len(combined["place_entities"])
-        )
+        # CRITICAL: Consolidate entity counts
+        print("🔍 ENTITY CONSOLIDATION DEBUG:")
+        all_entities = combined["entities"]
+        entity_categories = ["brand_entities", "movie_entities", "artist_entities", "place_entities"]
+        
+        for category in entity_categories:
+            category_entities = combined.get(category, [])
+            if category_entities:
+                print(f"   📦 {category}: {len(category_entities)} entities")
+                first_entity = category_entities[0]
+                entity_name = first_entity.get("name", "Unknown")
+                entity_type = first_entity.get("type", "Unknown")
+                print(f"      🔍 Example: {entity_name} (type: {entity_type})")
+        
+        print(f"   📊 Total consolidated entities: {len(all_entities)}")
+        
+        combined["total_entities"] = len(all_entities)
+        
+        print(f"   📈 Processing summary: {' | '.join(processing_log)}")
+        print(f"   ✅ Combination complete: {combined['total_entities']} total entities")
         
         return combined
+
+    def _classify_entity_by_name(self, entity: Dict) -> str:
+        """Classify entities when type field is generic (urn:entity)"""
+        
+        entity_name = entity.get("name", "").lower()
+        
+        # Known brands from your debug output
+        known_brands = [
+            "nike", "netflix", "instagram", "youtube", "twitter", "cnn", 
+            "christian dior", "victoria's secret", "playstation", "new york times",
+            "saputo", "beyu", "gameday couture", "haldiram's", "china airlines",
+            "blimpie", "lotte", "holded", "b & m", "ulla popken", "mtr foods", "posh"
+        ]
+        
+        # Known artists from your debug output
+        known_artists = ["coldplay", "radiohead", "the beatles"]
+        
+        # Known movies from your debug output  
+        known_movies = ["django unchained", "wolf of wall street"]
+        
+        # Known places from your debug output
+        known_places = ["washington square park", "top of the rock", "niagara falls"]
+        
+        # Classify by exact name matching
+        if any(brand in entity_name for brand in known_brands):
+            return "brand"
+        elif any(artist in entity_name for artist in known_artists):
+            return "artist"
+        elif any(movie in entity_name for movie in known_movies):
+            return "movie"
+        elif any(place in entity_name for place in known_places):
+            return "place"
+        else:
+            # Pattern-based fallback classification
+            if any(pattern in entity_name for pattern in ["company", "corp", "inc", "ltd"]):
+                return "brand"
+            elif "park" in entity_name or "square" in entity_name or "falls" in entity_name:
+                return "place"
+            else:
+                return "unknown"
+
 
     
     def _has_meaningful_combined_data(self, combined_insights: Dict) -> bool:
@@ -439,6 +594,142 @@ class QlooService:
         
         try:
             print("🔍 Parsing enhanced cultural insights...")
+            ##### NEW DEBUG CODE: Enhanced parsing diagnostics #####
+            print("🔍 PARSING DIAGNOSTICS DEBUG:")
+            
+            # Check data flow integrity
+            total_from_combined = combined_insights.get("total_entities", 0)
+            actual_entities = len(combined_insights.get("entities", []))
+            
+            print(f"   📊 Data flow check:")
+            print(f"      - Reported total: {total_from_combined}")
+            print(f"      - Actual entities list: {actual_entities}")
+            print(f"      - Data integrity: {'✅ PASS' if total_from_combined == actual_entities else '⚠️ MISMATCH'}")
+            
+            # Debug entity distribution
+            brand_count = len(combined_insights.get("brand_entities", []))
+            movie_count = len(combined_insights.get("movie_entities", []))
+            artist_count = len(combined_insights.get("artist_entities", []))
+            place_count = len(combined_insights.get("place_entities", []))
+            
+            print(f"   📦 Entity distribution:")
+            print(f"      - Brands: {brand_count}")
+            print(f"      - Movies: {movie_count}")
+            print(f"      - Artists: {artist_count}")
+            print(f"      - Places: {place_count}")
+            
+            # Check if we have the minimum data for meaningful analysis
+            has_brands = brand_count > 0
+            has_cultural_entities = (movie_count + artist_count + place_count) > 0
+            total_meaningful = brand_count + movie_count + artist_count + place_count
+            
+            print(f"   ✅ Parsing viability:")
+            print(f"      - Has brands: {has_brands}")
+            print(f"      - Has cultural entities: {has_cultural_entities}")
+            print(f"      - Total meaningful entities: {total_meaningful}")
+            ##### END NEW DEBUG CODE #####
+            ##
+            self.debug_api_responses(combined_insights)
+            ##
+            ##### NEW DEBUG CODE: Enhanced brand extraction debugging #####
+            print("🔍 ENHANCED BRAND EXTRACTION DEBUG:")
+            raw_brands = combined_insights.get("brand_entities", [])
+            print(f"📋 Raw brand entities from API: {len(raw_brands)}")
+            
+            if raw_brands:
+                print("   🔍 Raw brand analysis:")
+                for i, brand in enumerate(raw_brands[:3]):
+                    brand_name = brand.get('name', 'No name')
+                    brand_type = brand.get('type', 'No type')
+                    brand_id = str(brand.get('id', 'No ID'))[:20]
+                    print(f"      {i+1}. Name: '{brand_name}' | Type: '{brand_type}' | ID: {brand_id}...")
+                    
+                    # Check all possible name fields
+                    alt_names = []
+                    for name_field in ['title', 'display_name', 'label']:
+                        if brand.get(name_field):
+                            alt_names.append(f"{name_field}: {brand.get(name_field)}")
+                    if alt_names:
+                        print(f"         Alternative names: {' | '.join(alt_names)}")
+            else:
+                print("   ⚠️ No raw brand entities found - this explains why brand parsing fails")
+            ##### END NEW DEBUG CODE #####
+
+            print("🔍 BRAND PARSING DEBUG:")
+            raw_brands = combined_insights.get("brand_entities", [])
+            print(f"📋 Raw brand entities from API: {len(raw_brands)}")
+            
+            for i, brand in enumerate(raw_brands[:3]):
+                print(f"   {i+1}. {brand}")  # Print full brand object
+            
+            # Check how brands are being processed
+            processed_brands = []
+            for entity in raw_brands:
+                if isinstance(entity, dict):
+                    brand_name = entity.get('name') or entity.get('title') or str(entity)
+                    processed_brands.append(brand_name)
+                    print(f"✅ Processed brand: {brand_name}")
+                else:
+                    print(f"⚠️ Unexpected brand format: {type(entity)} - {entity}")
+            
+            print(f"🏢 Final processed brands: {processed_brands}")
+            ##### NEW DEBUG CODE: Full entity type analysis #####
+            print("🔍 COMPREHENSIVE ENTITY TYPE DEBUG:")
+            all_entities = combined_insights.get("entities", [])
+            print(f"📋 Total raw entities: {len(all_entities)}")
+            
+            if all_entities:
+                entity_types = {}
+                for entity in all_entities:
+                    entity_type = entity.get('type', 'unknown')
+                    entity_name = entity.get('name') or entity.get('title', 'Unknown')
+                    
+                    if entity_type not in entity_types:
+                        entity_types[entity_type] = []
+                    entity_types[entity_type].append(entity_name)
+                
+                print("📊 Complete entity breakdown by type:")
+                for entity_type, names in entity_types.items():
+                    print(f"   {entity_type}: {len(names)} entities")
+                    for name in names[:2]:  # Show first 2 examples
+                        print(f"      - {name}")
+                        
+                # Check if any entities could be brands but aren't classified as such
+                potential_brands = []
+                for entity_type, names in entity_types.items():
+                    if 'brand' not in entity_type.lower() and len(names) > 0:
+                        potential_brands.extend([(name, entity_type) for name in names[:2]])
+                
+                if potential_brands:
+                    print("   🔍 Potential missed brands:")
+                    for name, etype in potential_brands:
+                        print(f"      - {name} (currently: {etype})")
+            else:
+                print("   ⚠️ CRITICAL: No entities in main entities list!")
+                print("   This indicates a problem in the _combine_insights method.")
+            ##### END NEW DEBUG CODE #####
+
+            print("🔍 RAW API RESPONSE DEBUG:")
+    
+    # Check all entity types in your response
+            all_entities = combined_insights.get("entities", [])
+            print(f"📋 Total raw entities: {len(all_entities)}")
+            
+            entity_types = {}
+            for entity in all_entities:
+                entity_type = entity.get('type', 'unknown')
+                entity_name = entity.get('name') or entity.get('title', 'Unknown')
+                
+                if entity_type not in entity_types:
+                    entity_types[entity_type] = []
+                entity_types[entity_type].append(entity_name)
+            
+            print("📊 Entity breakdown by type:")
+            for entity_type, names in entity_types.items():
+                print(f"   {entity_type}: {len(names)} entities")
+                for name in names[:2]:  # Show first 2 examples
+                    print(f"      - {name}")
+            ##
             
             # Extract entities by type
             brand_entities = combined_insights.get("brand_entities", [])
@@ -451,11 +742,24 @@ class QlooService:
             movies = [entity.get("name", "") for entity in movie_entities if entity.get("name")]
             artists = [entity.get("name", "") for entity in artist_entities if entity.get("name")]
             places = [entity.get("name", "") for entity in place_entities if entity.get("name")]
-            
+            ##### NEW DEBUG CODE: Segment generation debugging #####
+            print("🔍 SEGMENT GENERATION DEBUG:")
+            print(f"   📊 Input data for segmentation:")
+            print(f"      - Brands for analysis: {len(brands)} ({brands[:3]})")
+            print(f"      - User preferences complexity: {len(preferences.music_genres + preferences.fashion_styles + preferences.dining_preferences + preferences.lifestyle_choices + preferences.entertainment_types)}")
+            ##### END NEW DEBUG CODE #####
+
             # Enhanced cultural segment analysis
             segments = self._extract_enhanced_cultural_segments(
                 brand_entities, preferences, movies, artists, places
             )
+             
+            ##### NEW DEBUG CODE: Final segment analysis #####
+            print(f"   🎭 Generated segments: {segments}")
+            print(f"   📈 Segment generation success: {'✅' if segments else '❌'}")
+            if not segments:
+                print("   ⚠️ No segments generated - falling back to defaults")
+            ##### END NEW DEBUG CODE #####
             
             # Calculate enhanced behavioral indicators
             behavioral_indicators = self._calculate_enhanced_behavioral_indicators(
@@ -478,6 +782,17 @@ class QlooService:
             if isinstance(data_sources_list, int):
                 # Convert count back to list format for compatibility
                 data_sources_list = [f"method_{i+1}" for i in range(data_sources_list)]
+             ##### NEW DEBUG CODE: Final profile creation summary #####
+            print("🔍 PROFILE CREATION SUMMARY:")
+            print(f"   📊 Profile elements:")
+            print(f"      - Cultural segments: {len(segments)}")
+            print(f"      - Brands: {len(brands)}")
+            print(f"      - Artists: {len(artists)}")
+            print(f"      - Places: {len(places)}")
+            print(f"      - Confidence score: {confidence_score}")
+            print(f"      - Behavioral indicators: {len(behavioral_indicators)}")
+            print(f"   ✅ Profile ready for creation")
+            ##### END NEW DEBUG CODE #####
             
             return CulturalProfile(
                 profile_id=f"qloo_enhanced_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -500,6 +815,14 @@ class QlooService:
             
         except Exception as e:
             print(f"⚠️ Enhanced insights parsing error: {e}")
+            ##### NEW DEBUG CODE: Error context debugging #####
+            print("🔍 ERROR CONTEXT DEBUG:")
+            print(f"   📊 Combined insights keys: {list(combined_insights.keys()) if combined_insights else 'None'}")
+            print(f"   📊 Combined insights type: {type(combined_insights)}")
+            import traceback
+            print(f"   📊 Full error traceback:")
+            traceback.print_exc()
+            ##### END NEW DEBUG CODE #####
             return self._create_enhanced_sample_profile(preferences)
 
     
@@ -897,6 +1220,7 @@ class QlooService:
             "success_rate": f"{success_rate:.1f}%",
             "api_available": self.api_available
         }
+    
 
 # Enhanced test function
 async def test_enhanced_qloo_integration():
@@ -975,6 +1299,58 @@ async def test_enhanced_qloo_integration():
     print(f"\n🎯 Enhanced Qloo integration test completed!")
     print(f"✅ Your TrendSeer now has production-ready cultural intelligence!")
 
+# Add this test function to check your Qloo service independently
+async def test_qloo_variations():
+    """Test if Qloo returns different results for different inputs"""
+    
+    from models.trend_models import UserPreferences
+    from services.trend_analyzer import TrendAnalyzer
+    
+    analyzer = TrendAnalyzer()
+    
+    # Test 1: Electronic music preferences
+    prefs1 = UserPreferences(
+        music_genres=["electronic", "techno", "house"],
+        fashion_styles=["streetwear", "techwear"],
+        lifestyle_choices=["nightlife", "urban living"]
+    )
+    
+    # Test 2: Folk music preferences  
+    prefs2 = UserPreferences(
+        music_genres=["folk", "acoustic", "indie folk"],
+        fashion_styles=["vintage", "bohemian"],
+        lifestyle_choices=["nature", "mindfulness", "artisanal"]
+    )
+    
+    print("🧪 Testing Qloo variations...")
+    
+    profile1 = await analyzer.qloo_service.create_cultural_profile(prefs1)
+    print(f"Test 1 - Segments: {profile1.cultural_segments}")
+    print(f"Test 1 - Artists: {profile1.cross_domain_connections.get('artists', [][:3])}")
+    
+    profile2 = await analyzer.qloo_service.create_cultural_profile(prefs2)
+    print(f"Test 2 - Segments: {profile2.cultural_segments}")
+    print(f"Test 2 - Artists: {profile2.cross_domain_connections.get('artists', [])[:3]}")
+    
+    # Check if results are different
+    same_segments = profile1.cultural_segments == profile2.cultural_segments
+    same_artists = (profile1.cross_domain_connections.get('artists', []) == 
+                   profile2.cross_domain_connections.get('artists', []))
+    
+    print(f"🔍 Results comparison:")
+    print(f"   Same segments: {same_segments}")
+    print(f"   Same artists: {same_artists}")
+    
+    if same_segments and same_artists:
+        print("⚠️ WARNING: Qloo returning identical results for different inputs!")
+        print("   This suggests fallback/sample data is being used instead of real API data.")
+    else:
+        print("✅ SUCCESS: Qloo returning varied results for different inputs!")
+
+    
+
 if __name__ == "__main__":
     import asyncio
     asyncio.run(test_enhanced_qloo_integration())
+    asyncio.run(test_qloo_variations())
+
