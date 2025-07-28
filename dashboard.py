@@ -367,8 +367,7 @@ if user_input and send_btn:
                 
                 if valid_profile:
                     st.session_state.last_cultural_profile = profile
-                    # 🔍 ADD CHECK LOGIC HERE
-                    st.markdown("### 🔍 Debug: Qloo Service Check")
+                   
                     
                     # Check 1: Verify API connection
                     qloo_service = st.session_state.analyzer.qloo_service
