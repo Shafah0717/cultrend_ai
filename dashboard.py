@@ -3,7 +3,8 @@ from datetime import datetime
 import random
 import asyncio
 from models.trend_models import BrandIdentityKit, CulturalProfile  # Updated import
-
+from services.explanation_service import ExplanationService
+from services.recommendation_service import RecommendationService
 # Import your content data (make sure content_data.py is in the same directory)
 from content.content_data import popular_anime, travel_areas, football_clubs
 
@@ -47,6 +48,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="main-header">
+    st.logo("cultrend_logo.svg")    
     <h1> Cultrend AI</h1>
     <p>Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
 </div>
@@ -65,7 +67,7 @@ smalltalk_questions = [
     "Nice! Just out of curiosity, do you have a favorite artist, hobby, or trend lately?",
     "Beautiful! I always love hearing about what inspires people. Is there a genre, scene, or community you're drawn to these days?"
 ]
-interest_prompt = "I'd love to learn about your cultural interests! What are some things you care about—like music, fashion, travel, gaming, or something else?"
+interest_prompt = "I'd love to learn about your cultural interests! What are some things you care about like music, fashion, travel, gaming, or something else?"
 
 # --- Session state ---
 if "messages" not in st.session_state:
@@ -84,6 +86,13 @@ if "last_cultural_profile" not in st.session_state:
 if "show_brand_kit_prompt" not in st.session_state:
     st.session_state.show_brand_kit_prompt = False
 
+if "recommendation_service" not in st.session_state:
+    st.session_state.recommendation_service = RecommendationService()
+
+# Also add the explanation service to be safe
+if "explanation_service" not in st.session_state:
+    st.session_state.explanation_service = ExplanationService()
+
 if len(st.session_state.messages) == 0:
     st.session_state.messages.append({
         "role": "assistant",
@@ -91,25 +100,38 @@ if len(st.session_state.messages) == 0:
         "timestamp": datetime.now(),
         "type": "standard"
     })
-
 def render_product_cards(items, content, timestamp):
-    st.markdown(f"""
-        <div class="chat-message assistant-message" style="margin-bottom:0.5rem;">
-            <strong>🤖 Cultrend</strong>
-            <small>({timestamp.strftime('%H:%M') if timestamp else ''})</small><br>
-            {content}
-            <div class="recommend-card-row">
-    """, unsafe_allow_html=True)
+    
+    st.markdown(f'<div class="chat-message assistant-message" style="margin-bottom:0.5rem;"><strong>(•‿•) Cultrend</strong> <small>({timestamp.strftime("%H:%M")})</small><br>{content}</div>', unsafe_allow_html=True)
+    
+    # We'll use columns for a cleaner layout
+    cols = st.columns(3)
+    col_index = 0
 
     for item in items:
-        st.markdown(f"""
-            <div class="mini-product-card" tabindex="0" role="button" aria-label="{item['name']}">
-                <img src="{item['image']}" class="mini-product-img" alt="{item['name']} image" />
-                <div class="mini-product-txt">{item['name']}</div>
-                <a class="mini-product-btn" href="{item['link']}" target="_blank" rel="noopener noreferrer" aria-label="Shop {item['name']}">🛒 Shop</a>
-            </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div></div>", unsafe_allow_html=True)
+        with cols[col_index % 3]:
+            # Card container
+            st.markdown(f'<div class="explained-card">', unsafe_allow_html=True)
+            
+            # Image
+            st.image(item["image"], use_column_width=True)
+            
+            # Name and Price
+            price_text = f" - {item.get('price', '')}" if item.get('price') else ""
+            st.markdown(f"**{item['name']}**{price_text}")
+
+            # "Why it's for you" section
+            if "explanation" in item and item["explanation"]:
+                with st.expander("✨ Why it's for you"):
+                    for key, reason in item["explanation"].items():
+                        st.markdown(f"- {reason}")
+            
+            # Shop Button
+            st.link_button("🛒 Shop Now", item["link"], use_container_width=True)
+            
+            st.markdown(f'</div>', unsafe_allow_html=True)
+        
+        col_index += 1
 
 # --- ADDED: Function to render brand identity kit ---
 def render_brand_kit(brand_kit: BrandIdentityKit):
@@ -163,7 +185,7 @@ for message in st.session_state.messages:
     if message.get("type") == "brand_kit":
         st.markdown(f"""
         <div class="chat-message assistant-message">
-            <strong>🤖 Cultrend</strong>
+            <strong>(•‿•) Cultrend</strong>
             <small>({message.get('timestamp').strftime('%H:%M') if message.get('timestamp') else ''})</small><br>
             {message['content']}
         </div>
@@ -176,7 +198,7 @@ for message in st.session_state.messages:
     content = message["content"]
     timestamp = message.get("timestamp", datetime.now())
     msg_class = "user-message" if role == "user" else "assistant-message"
-    avatar = "🧑" if role == "user" else "🤖"
+    avatar = "👤" if role == "user" else "(•‿•)"
     st.markdown(f"""
     <div class="chat-message {msg_class}">
         <strong>{avatar} {'You' if role == 'user' else 'Cultrend'}</strong> <small>({timestamp.strftime('%H:%M')})</small><br>
@@ -218,7 +240,7 @@ with col1:
         label_visibility="collapsed"
     )
 with col2:
-    send_btn = st.button("📤 Send", type="primary")
+    send_btn = st.button("✔️ Send", type="primary")
 
 def is_smalltalk(content: str) -> bool:
     smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
@@ -448,7 +470,6 @@ if user_input and send_btn:
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": random.choice([
-                        "That's awesome! Tell me another thing you enjoy. The more I learn, the more personal my trend predictions get!",
                         "I love your energy! Shall we keep exploring your interests? Share more or type 'analyze' if you want me to analyze your profile."
                     ]),
                     "timestamp": datetime.now(),
@@ -457,7 +478,8 @@ if user_input and send_btn:
                 st.rerun()
 
         elif st.session_state.conversation_stage == "post-analysis":
-            # Handle brand kit request
+        
+        # ➡️ First, check for brand kit request
             if "brand" in user_input.lower() or "kit" in user_input.lower() or "identity" in user_input.lower():
                 if st.session_state.last_cultural_profile:
                     with st.spinner("Crafting your personal brand identity..."):
@@ -483,10 +505,83 @@ if user_input and send_btn:
                         "type": "standard"
                     })
                     st.rerun()
+
+            # ➡️ If not a brand kit request, THEN check for recommendations
+            elif any(x in user_input.lower() for x in ["recommend", "suggestions", "products", "shopping", "buy"]):
+                if st.session_state.last_cultural_profile:
+                    # Get the brand kit if it exists
+                    brand_kit = None
+                    for msg in reversed(st.session_state.messages):
+                        if msg.get("type") == "brand_kit":
+                            brand_kit = msg.get("brand_kit")
+                            break
+                    
+                    if brand_kit:
+                        with st.spinner("Finding personalized recommendations..."):
+                            recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
+                                st.session_state.last_cultural_profile, 
+                                brand_kit,
+                                recommendation_type="products",
+                                max_recommendations=6
+                            )
+                            
+                            if recommendations:
+                                summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
+                                
+                                # ✅ THIS IS WHERE YOUR NEW EXPLANATION LOGIC GOES
+                                product_cards = []
+                                for rec in recommendations:
+                                    # GET THE EXPLANATION FOR EACH PRODUCT
+                                    explanation = st.session_state.explanation_service.get_recommendation_explanation(
+                                        rec, st.session_state.last_cultural_profile, brand_kit
+                                    )
+                                    
+                                    product_cards.append({
+                                        "name": rec["name"],
+                                        "image": rec["image"], 
+                                        "link": rec["link"],
+                                        "price": rec.get("price", ""),
+                                        "description": rec.get("description", ""),
+                                        "explanation": explanation # <-- ADD THE EXPLANATION HERE
+                                    })
+                                
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
+                                    "type": "recommendation",
+                                    "items": product_cards,
+                                    "timestamp": datetime.now()
+                                })
+                            else:
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": "I couldn't find specific recommendations for your profile. Try asking again!",
+                                    "timestamp": datetime.now(),
+                                    "type": "standard"
+                                })
+                        st.rerun()
+                    else:
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": "To get personalized recommendations, please generate your Brand Identity Kit first by clicking the button above or saying 'brand kit'.",
+                            "timestamp": datetime.now(),
+                            "type": "standard"
+                        })
+                        st.rerun()
+                else:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "I need to analyze your cultural profile first. Please share more about your interests!",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+                    st.rerun()
+
+            # ➡️ If the user didn't ask for a brand kit OR recommendations, give this default response
             else:
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": "Love the conversation! Type any anime, travel, or football club for custom picks.",
+                    "content": "Love the conversation! You can say 'brand kit' to generate your identity, or ask for 'recommendations' to see products that match your style.",
                     "timestamp": datetime.now(),
                     "type": "standard"
                 })

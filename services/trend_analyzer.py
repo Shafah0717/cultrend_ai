@@ -142,6 +142,7 @@ class TrendAnalyzer:
             except Exception as e:
                 print(f"❌ Brand generation error: {e}")
                 return self._create_fallback_brand_kit(cultural_profile)
+    
 
 
     def _create_fallback_brand_kit(self, cultural_profile: CulturalProfile) -> BrandIdentityKit:
