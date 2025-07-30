@@ -29,7 +29,7 @@ gemini_service = GeminiService()
 @app.get("/")
 async def root():
     return {
-        "message": "TrendSeer Cultural Intelligence API",
+        "message": "Cultrend Cultural Intelligence API",
         "version": "1.0.0",
         "status": "active",
         "features": ["cultural_analysis", "trend_prediction", "brand_insights"]

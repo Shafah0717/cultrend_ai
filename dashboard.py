@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 import random
 import asyncio
+import base64
 from models.trend_models import BrandIdentityKit, CulturalProfile  # Updated import
 from services.explanation_service import ExplanationService
 from services.recommendation_service import RecommendationService
@@ -11,7 +12,7 @@ from content.content_data import popular_anime, travel_areas, football_clubs
 from services.trend_analyzer import TrendAnalyzer  # your actual analyzer
 from models.trend_models import UserPreferences    # adjust import as needed
 
-st.set_page_config(page_title="Cultrend AI", layout="wide")
+st.set_page_config(page_title="Cultrend AI", layout="wide",page_icon="cultrend_avatar.png")
 
 # --- UI Styles ---
 st.markdown("""
@@ -24,7 +25,7 @@ st.markdown("""
     font-size: 1rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.45;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);}
 .user-message { background-color: #d9e7ff; border-left: 6px solid #1a73e8; color: #003366;}
-.assistant-message { background-color: #ede7f6; border-left: 6px solid #6a52c7; color: #3e2f75;}
+.assistant-message { background-color: #f0ecf5; border-left: 6px solid #6a52c7; color: #3e2f75;}
 @keyframes fadeIn { from { opacity: 0; transform: translateY(12px);} to{ opacity:1; transform: translateY(0);}}
 .mini-product-card {
     background: #fff; border-radius: 12px; box-shadow: 0 6px 15px rgba(121,94,194, 0.15);
@@ -39,26 +40,40 @@ st.markdown("""
 .mini-product-btn:hover { background: linear-gradient(90deg, #7f5fc5, #5c4dbc); box-shadow: 0 5px 15px rgba(133,109,209,0.7);}
 .recommend-card-row { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 14px; justify-content: flex-start;}
 .brand-kit-container { background-color: #ffffff; padding: 1.5rem; border-radius: 15px; border: 1px solid #ddd; margin-top: 1rem;}
+
 @media (max-width: 700px){
     .recommend-card-row { flex-direction: column; gap: 12px;}
     .mini-product-card { width: 100% !important; min-width:unset !important; margin-left:0 !important;}
 }
+  div.stButton > button:first-child {
+        background-color: #ffffff;
+        color: #333;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 0.2rem 1rem;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #f0f0f0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+
+
 st.markdown("""
-<div class="main-header">
-    st.logo("cultrend_logo.svg")    
-    <h1> Cultrend AI</h1>
-    <p>Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
+<div class="main-header" style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+        <h1 style="margin-bottom: 0; color: #fff; font-size: 2.5rem;">Cultrend AI</h1>
+    </div>
+    <p style="color: #fff; font-size: 1.1rem; margin: 0;">Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ----- Friendly opening, small talk logic -----
 friendly_openers = [
-    "Hey there! 👋 How's your day going so far?",
+    "Hey there!  How's your day going so far?",
     "Hi! It's nice to meet you. Have you done anything fun or interesting recently?",
-    "Hello! 😃 If you could spend your afternoon any way you liked, what would you do?",
+    "Hello!  If you could spend your afternoon any way you liked, what would you do?",
     "Hey! I always like starting with a friendly chat—what's something that's made you smile lately?"
 ]
 smalltalk_questions = [
@@ -100,43 +115,40 @@ if len(st.session_state.messages) == 0:
         "timestamp": datetime.now(),
         "type": "standard"
     })
+def get_cultrend_avatar_img():
+    with open("cultrend_avatar.png", "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode()
+    return f'<img src="data:image/png;base64,{encoded}" width="32" style="vertical-align:middle;margin-right:4px;">'
+
 def render_product_cards(items, content, timestamp):
     
     st.markdown(f'<div class="chat-message assistant-message" style="margin-bottom:0.5rem;"><strong>(•‿•) Cultrend</strong> <small>({timestamp.strftime("%H:%M")})</small><br>{content}</div>', unsafe_allow_html=True)
     
     # We'll use columns for a cleaner layout
-    cols = st.columns(3)
-    col_index = 0
+    cols = st.columns(3)  # Three cards per row
 
-    for item in items:
-        with cols[col_index % 3]:
-            # Card container
-            st.markdown(f'<div class="explained-card">', unsafe_allow_html=True)
-            
-            # Image
-            st.image(item["image"], use_column_width=True)
-            
-            # Name and Price
-            price_text = f" - {item.get('price', '')}" if item.get('price') else ""
-            st.markdown(f"**{item['name']}**{price_text}")
-
-            # "Why it's for you" section
-            if "explanation" in item and item["explanation"]:
+    for idx, item in enumerate(items):
+        with cols[idx % 3]:
+            st.markdown('<div class="explained-card">', unsafe_allow_html=True)
+            st.markdown(
+                f"<img src='{item['image']}' style='height:350px;width:100%;object-fit:cover;"
+                "border-radius:12px;margin-bottom:0.6rem;display:block;'>",
+                unsafe_allow_html=True
+            )
+            st.markdown(f"<h4 style='margin:0;'>{item['name']}</h4>", unsafe_allow_html=True)
+            if item.get('price'):
+                st.markdown(f"<p><b>{item['price']}</b></p>", unsafe_allow_html=True)
+            if item.get("explanation"):
                 with st.expander("✨ Why it's for you"):
-                    for key, reason in item["explanation"].items():
+                    for reason in item["explanation"].values():
                         st.markdown(f"- {reason}")
-            
-            # Shop Button
             st.link_button("🛒 Shop Now", item["link"], use_container_width=True)
-            
-            st.markdown(f'</div>', unsafe_allow_html=True)
-        
-        col_index += 1
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # --- ADDED: Function to render brand identity kit ---
 def render_brand_kit(brand_kit: BrandIdentityKit):
     """Renders the BrandIdentityKit in a structured, visually appealing card"""
-    st.markdown("### 🎨 Your Personal Brand Identity Kit")
+    st.markdown("###  Your Personal Brand Identity Kit")
     st.markdown(f"#### {brand_kit.brand_name}")
     st.markdown(f"> *{brand_kit.tagline}*")
     
@@ -198,7 +210,8 @@ for message in st.session_state.messages:
     content = message["content"]
     timestamp = message.get("timestamp", datetime.now())
     msg_class = "user-message" if role == "user" else "assistant-message"
-    avatar = "👤" if role == "user" else "(•‿•)"
+    cultrend_avatar = get_cultrend_avatar_img()  # Or get_cultrend_avatar_img()
+    avatar = "👤" if role == "user" else cultrend_avatar
     st.markdown(f"""
     <div class="chat-message {msg_class}">
         <strong>{avatar} {'You' if role == 'user' else 'Cultrend'}</strong> <small>({timestamp.strftime('%H:%M')})</small><br>
@@ -236,11 +249,10 @@ col1, col2 = st.columns([6, 1])
 with col1:
     user_input = st.text_input("Your message:", "",
         key=f"chat_input_{len(st.session_state.messages)}",
-        placeholder="Say something friendly, mention an anime, travel place, or football club!",
         label_visibility="collapsed"
     )
 with col2:
-    send_btn = st.button("✔️ Send", type="primary")
+    send_btn = st.button("✔️ Send")
 
 def is_smalltalk(content: str) -> bool:
     smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
@@ -255,7 +267,7 @@ def extract_user_preferences(messages):
     fashion_keywords = ["minimalist", "vintage", "streetwear", "sustainable", "luxury", "casual", "formal", "bohemian", "preppy", "gothic", "punk", "athletic", "trendy", "classic", "avant-garde"]
     dining_keywords = ["local", "organic", "vegan", "vegetarian", "italian", "japanese", "chinese", "mexican", "indian", "thai", "french", "mediterranean", "artisanal", "craft", "farm-to-table", "street food", "fine dining"]
     entertainment_keywords = ["gaming", "movies", "music", "books", "art", "theater", "comedy", "podcasts", "streaming", "concerts", "festivals", "museums", "galleries", "sports", "outdoor", "travel"]
-    lifestyle_keywords = ["wellness", "fitness", "yoga", "meditation", "sustainability", "minimalism", "technology", "innovation", "entrepreneurship", "creativity", "community", "volunteering", "travel", "adventure", "learning"]
+    lifestyle_keywords = ["gym","wellness", "fitness", "yoga", "meditation", "sustainability", "minimalism", "technology", "innovation", "entrepreneurship", "creativity", "community", "volunteering", "travel", "adventure", "learning"]
     
     # Extract matches
     music = {w for w in music_keywords if w in prefs_text}
@@ -357,26 +369,26 @@ if user_input and send_btn:
                 with st.spinner("Analyzing your cultural DNA..."):
                     analyzer = st.session_state.analyzer
                     try:
-                        # Call your Qloo+Gemini pipeline
+                        
                         analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
                         
-                        # Safely get the profile from the result
+                        
                         if hasattr(analysis, 'cultural_profile') and analysis.cultural_profile:
                             profile = analysis.cultural_profile
                         else:
-                            # Handle case where analysis object IS the profile
+                            
                             profile = analysis
                             
                     except Exception as e:
                         print(f"Error during analysis: {e}")
-                        # If the analysis service fails, profile remains None
+                    
 
                 # --- Enhanced profile validation ---
                 valid_profile = False
                 segments = []
                 
                 if profile:
-                    # Check for cultural segments with different naming conventions
+                    
                     if hasattr(profile, 'cultural_segments') and profile.cultural_segments:
                         segments = profile.cultural_segments
                         valid_profile = True
@@ -391,25 +403,25 @@ if user_input and send_btn:
                     st.session_state.last_cultural_profile = profile
                    
                     
-                    # Check 1: Verify API connection
+                    
                     qloo_service = st.session_state.analyzer.qloo_service
                     api_status = asyncio.run(qloo_service._test_api_connection())
                     st.write(f"**API Connection:** {'✅ Working' if api_status else '❌ Failed'}")
                     
-                    # Check 2: Verify data sources
+                   
                     connections = profile.cross_domain_connections
                     data_sources = connections.get('data_sources', [])
                     st.write(f"**Data Sources Used:** {data_sources}")
                     
-                    # Check 3: Show raw entity counts
+                  
                     st.write(f"**Brand Entities:** {len(connections.get('brands', []))}")
                     st.write(f"**Artist Entities:** {len(connections.get('artists', []))}")
                     st.write(f"**Cultural Segments:** {profile.cultural_segments}")
                     
-                    # Check 4: Performance metrics
+              
                     metrics = qloo_service.get_performance_metrics()
                     st.write(f"**Service Metrics:** {metrics}")
-                    # Build success message with trend predictions
+                    
                     resp_lines = []
                     resp_lines.append("Here's what I've learned about your trend vibe!\n")
                     resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
@@ -429,7 +441,6 @@ if user_input and send_btn:
                             resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
                         resp_lines.append("")
                     
-                    # Add cultural segments info
                     resp_lines.append(f"**Your Cultural Segments:** {', '.join(segments)}")
                     
                     # Add BRAND KIT PROMPT
