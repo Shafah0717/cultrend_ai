@@ -566,9 +566,9 @@ if user_input and send_btn:
                 st.rerun()
 
         elif st.session_state.conversation_stage == "post-analysis":
-        
-        # ➡️ First, check for brand kit request
-            if "brand" in user_input.lower() or "kit" in user_input.lower() or "identity" in user_input.lower():
+    
+            # Check for brand kit request first
+            if any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
                 if st.session_state.last_cultural_profile:
                     with st.spinner("Crafting your personal brand identity..."):
                         analyzer = st.session_state.analyzer
@@ -576,6 +576,7 @@ if user_input and send_btn:
                             st.session_state.last_cultural_profile
                         ))
                         
+                        # Add brand kit message
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": "Here's your personalized Brand Identity Kit based on your cultural DNA:",
@@ -583,15 +584,19 @@ if user_input and send_btn:
                             "brand_kit": brand_kit,
                             "timestamp": datetime.now()
                         })
+                        
+                        # Add follow-up message with next steps
                         st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                    st.session_state.show_brand_kit_prompt = False
-                    st.rerun()
+                            "role": "assistant", 
+                            "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
+                            "timestamp": datetime.now(),
+                            "type": "standard"
+                        })
+                        
+                        st.session_state.show_brand_kit_prompt = False
+                        st.rerun()
                 else:
+                    # Handle missing cultural profile
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": "Sorry, I couldn't find your cultural profile. Please try analyzing again.",
@@ -600,18 +605,19 @@ if user_input and send_btn:
                     })
                     st.rerun()
 
-            # ➡️ If not a brand kit request, THEN check for recommendations
-            elif any(x in user_input.lower() for x in ["recommend", "suggestions", "products", "shopping", "buy"]):
+            # Check for recommendation requests
+            elif any(keyword in user_input.lower() for keyword in ["recommend", "suggestions", "products", "shopping", "buy"]):
                 if st.session_state.last_cultural_profile:
-                    # Get the brand kit if it exists
+                    # Search for existing brand kit in messages
                     brand_kit = None
-                    for msg in reversed(st.session_state.messages):
-                        if msg.get("type") == "brand_kit":
-                            brand_kit = msg.get("brand_kit")
+                    for message in reversed(st.session_state.messages):
+                        if message.get("type") == "brand_kit":
+                            brand_kit = message.get("brand_kit")
                             break
                     
                     if brand_kit:
                         with st.spinner("Finding personalized recommendations..."):
+                            # Get personalized recommendations
                             recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
                                 st.session_state.last_cultural_profile, 
                                 brand_kit,
@@ -620,25 +626,30 @@ if user_input and send_btn:
                             )
                             
                             if recommendations:
+                                # Generate recommendation summary
                                 summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
                                 
-                              
+                                # Build product cards with explanations
                                 product_cards = []
-                                for rec in recommendations:
-                       
+                                for recommendation in recommendations:
+                                    # Get explanation for this recommendation
                                     explanation = st.session_state.explanation_service.get_recommendation_explanation(
-                                        rec, st.session_state.last_cultural_profile, brand_kit
+                                        recommendation, 
+                                        st.session_state.last_cultural_profile, 
+                                        brand_kit
                                     )
                                     
+                                    # Create product card with all details
                                     product_cards.append({
-                                        "name": rec["name"],
-                                        "image": rec["image"], 
-                                        "link": rec["link"],
-                                        "price": rec.get("price", ""),
-                                        "description": rec.get("description", ""),
-                                        "explanation": explanation # <-- ADD THE EXPLANATION HERE
+                                        "name": recommendation["name"],
+                                        "image": recommendation["image"], 
+                                        "link": recommendation["link"],
+                                        "price": recommendation.get("price", ""),
+                                        "description": recommendation.get("description", ""),
+                                        "explanation": explanation
                                     })
                                 
+                                # Add recommendations message
                                 st.session_state.messages.append({
                                     "role": "assistant",
                                     "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
@@ -647,6 +658,7 @@ if user_input and send_btn:
                                     "timestamp": datetime.now()
                                 })
                             else:
+                                # Handle no recommendations found
                                 st.session_state.messages.append({
                                     "role": "assistant",
                                     "content": "I couldn't find specific recommendations for your profile. Try asking again!",
@@ -655,6 +667,7 @@ if user_input and send_btn:
                                 })
                         st.rerun()
                     else:
+                        # Handle missing brand kit
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": "To get personalized recommendations, please generate your Brand Identity Kit first by clicking the button above or saying 'brand kit'.",
@@ -663,6 +676,7 @@ if user_input and send_btn:
                         })
                         st.rerun()
                 else:
+                    # Handle missing cultural profile
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": "I need to analyze your cultural profile first. Please share more about your interests!",
@@ -671,7 +685,7 @@ if user_input and send_btn:
                     })
                     st.rerun()
 
-            # ➡️ If the user didn't ask for a brand kit OR recommendations, give this default response
+            # Default response for other inputs
             else:
                 st.session_state.messages.append({
                     "role": "assistant",

@@ -504,7 +504,7 @@ Please provide your market analysis in the specified JSON format:"""
             response = self.model.generate_content(
                 "Please respond with exactly: 'Connection test successful'",
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,
+                    temperature=0.3,
                     max_output_tokens=50,
                 )
             )
