@@ -2,7 +2,7 @@ import streamlit as st
 import os
 st.set_page_config(
     page_title="Cultrend AI - Cultural Intelligence",
-    page_icon="🎭",  # Use emoji instead of file for reliability
+    page_icon="https://i.ibb.co/qYZWLGqH/Plugin-icon-1-1.png",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
