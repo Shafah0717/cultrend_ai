@@ -1,5 +1,27 @@
 import streamlit as st
+import os
+st.set_page_config(
+    page_title="Cultrend AI - Cultural Intelligence",
+    page_icon="🎭",  # Use emoji instead of file for reliability
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+def get_api_keys():
+    """Get API keys - now that page config is set"""
+    qloo_key = st.secrets.get("qloo", {}).get("api_key")
+    gemini_key = st.secrets.get("gemini", {}).get("api_key")
+    
+    if qloo_key and gemini_key:
+        st.success("✅ All API keys loaded successfully!")
+        return qloo_key, gemini_key
+    else:
+        st.error("❌ API keys missing!")
+        st.stop()
+
+# Get API keys
+qloo_key, gemini_key = get_api_keys()
 from datetime import datetime
+
 import random
 import asyncio
 import base64
@@ -34,7 +56,12 @@ def render_header_with_logo():
         </div>
         """, unsafe_allow_html=True)
 
-st.set_page_config(page_title="Cultrend AI", layout="wide",page_icon="cultrend_avatar.png")
+# st.set_page_config(
+#     page_title="Cultrend AI - Cultural Intelligence",
+#     page_icon="🎭",  # Use emoji instead of file for reliability
+#     layout="wide",
+#     initial_sidebar_state="collapsed"
+# )
 
 # --- UI Styles ---
 st.markdown("""
