@@ -12,7 +12,7 @@ def get_api_keys():
     gemini_key = st.secrets.get("gemini", {}).get("api_key")
     
     if qloo_key and gemini_key:
-        st.success("✅ All API keys loaded successfully!")
+        # st.success("✅ All API keys loaded successfully!")
         return qloo_key, gemini_key
     else:
         st.error("❌ API keys missing!")
@@ -325,6 +325,7 @@ col1, col2 = st.columns([6, 1])
 with col1:
     user_input = st.text_input("Your message:", "",
         key=f"chat_input_{len(st.session_state.messages)}",
+        
         label_visibility="collapsed"
     )
 with col2:
@@ -582,6 +583,12 @@ if user_input and send_btn:
                             "brand_kit": brand_kit,
                             "timestamp": datetime.now()
                         })
+                    st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football'**<br>• Tell me about other interests to explore",
+                    "timestamp": datetime.now(),
+                    "type": "standard"
+                })
                     st.session_state.show_brand_kit_prompt = False
                     st.rerun()
                 else:
