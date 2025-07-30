@@ -12,6 +12,28 @@ from content.content_data import popular_anime, travel_areas, football_clubs
 from services.trend_analyzer import TrendAnalyzer  # your actual analyzer
 from models.trend_models import UserPreferences    # adjust import as needed
 
+def render_header_with_logo():
+    try:
+        with open("cultrend_logo.svg", "r") as f:
+            svg_content = f.read()
+        
+        st.markdown(f"""
+        <div class="main-header" style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+                {svg_content}
+                <h1 style="margin-left: 15px; margin-bottom: 0; color: #333;">Cultrend AI</h1>
+            </div>
+            <p style="color: #666; font-size: 1.1rem; margin: 0;">Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.markdown("""
+        <div class="main-header" style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
+            <h1>Cultrend AI</h1>
+            <p>Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
 st.set_page_config(page_title="Cultrend AI", layout="wide",page_icon="cultrend_avatar.png")
 
 # --- UI Styles ---
@@ -84,6 +106,33 @@ smalltalk_questions = [
 ]
 interest_prompt = "I'd love to learn about your cultural interests! What are some things you care about like music, fashion, travel, gaming, or something else?"
 
+import os
+
+def get_api_keys():
+    """Get API keys from Streamlit secrets or environment variables"""
+    try:
+        # Try Streamlit secrets first (for deployment)
+        qloo_api_key = st.secrets.get("qloo", {}).get("api_key")
+        gemini_api_key = st.secrets.get("gemini", {}).get("api_key")
+    except:
+        qloo_api_key = None
+        gemini_api_key = None
+    
+    # Fall back to environment variables
+    if not qloo_api_key:
+        qloo_api_key = os.getenv("QLOO_API_KEY")
+    if not gemini_api_key:
+        gemini_api_key = os.getenv("GOOGLE_API_KEY")
+    
+    if not qloo_api_key or not gemini_api_key:
+        st.error("🔑 Missing API keys! Please check your secrets.toml or .env file")
+        st.info("Required: QLOO_API_KEY and GOOGLE_API_KEY")
+        st.stop()
+    
+    return qloo_api_key, gemini_api_key
+
+# Get API keys
+qloo_api_key, gemini_api_key = get_api_keys()
 # --- Session state ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
