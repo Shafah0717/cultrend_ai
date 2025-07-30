@@ -583,12 +583,12 @@ if user_input and send_btn:
                             "brand_kit": brand_kit,
                             "timestamp": datetime.now()
                         })
-                    st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football'**<br>• Tell me about other interests to explore",
-                    "timestamp": datetime.now(),
-                    "type": "standard"
-                })
+                        st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
                     st.session_state.show_brand_kit_prompt = False
                     st.rerun()
                 else:
