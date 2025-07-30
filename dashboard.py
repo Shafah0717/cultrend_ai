@@ -567,7 +567,7 @@ if user_input and send_btn:
 
         elif st.session_state.conversation_stage == "post-analysis":
     
-            # Check for brand kit request first
+    # Check for brand kit request first
             if any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
                 if st.session_state.last_cultural_profile:
                     with st.spinner("Crafting your personal brand identity..."):
@@ -593,6 +593,8 @@ if user_input and send_btn:
                             "type": "standard"
                         })
                         
+                        # Update conversation stage to post-brand-generation
+                        st.session_state.conversation_stage = "post-brand-generation"
                         st.session_state.show_brand_kit_prompt = False
                         st.rerun()
                 else:
