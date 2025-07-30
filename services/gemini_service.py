@@ -12,7 +12,7 @@ class GeminiService:
     
     def __init__(self):
         # Configure Gemini
-        genai.configure(api_key=settings.google_api_key)
+        genai.configure(api_key=settings.gemini_api_key)
         # Use gemini-1.5-flash for better safety compliance
         self.model = genai.GenerativeModel('gemini-1.5-flash')
         
