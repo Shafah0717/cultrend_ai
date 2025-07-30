@@ -446,50 +446,18 @@ if user_input and send_btn:
                 with st.spinner("Analyzing your cultural DNA..."):
                     analyzer = st.session_state.analyzer
                     try:
-                        # Add progress indicators
-                        st.write("🔍 Processing your cultural preferences...")
                         
                         analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
                         
-                        # Better validation of analysis results
-                        if analysis and hasattr(analysis, 'cultural_profile') and analysis.cultural_profile:
+                        
+                        if hasattr(analysis, 'cultural_profile') and analysis.cultural_profile:
                             profile = analysis.cultural_profile
-                            st.success("✅ Cultural analysis completed successfully!")
-                            
-                            # Store the full analysis for later use
-                            st.session_state.last_cultural_analysis = analysis
-                            st.session_state.last_cultural_profile = profile
-                            
-                        elif analysis:
-                            # Fallback if structure is different
-                            profile = analysis
-                            st.success("✅ Cultural profile generated!")
-                            st.session_state.last_cultural_profile = profile
-                            
                         else:
-                            # Handle null/empty analysis
-                            st.error("❌ Cultural analysis returned empty results")
-                            st.info("Please try again with different preferences")
-                            profile = None
+                            
+                            profile = analysis
                             
                     except Exception as e:
-                        # Better error handling with user-friendly messages
-                        error_msg = str(e)
-                        st.error("❌ Cultural analysis failed")
-                        
-                        if "API" in error_msg.upper():
-                            st.warning("🔑 API connection issue. Please check your internet connection.")
-                        elif "timeout" in error_msg.lower():
-                            st.warning("⏱️ Analysis timed out. Please try again.")
-                        else:
-                            st.warning(f"🛠️ Technical issue: {error_msg}")
-                        
-                        # Log detailed error for debugging
-                        print(f"Detailed error during analysis: {e}")
-                        print(f"Error type: {type(e)}")
-                        
-                        profile = None
-
+                        print(f"Error during analysis: {e}")
                     
 
                 # --- Enhanced profile validation ---
@@ -654,10 +622,10 @@ if user_input and send_btn:
                             if recommendations:
                                 summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
                                 
-                                # ✅ THIS IS WHERE YOUR NEW EXPLANATION LOGIC GOES
+                              
                                 product_cards = []
                                 for rec in recommendations:
-                                    # GET THE EXPLANATION FOR EACH PRODUCT
+                       
                                     explanation = st.session_state.explanation_service.get_recommendation_explanation(
                                         rec, st.session_state.last_cultural_profile, brand_kit
                                     )
