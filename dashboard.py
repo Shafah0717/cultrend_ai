@@ -112,7 +112,10 @@ if "last_processed_input" not in st.session_state:
     st.session_state.last_processed_input = ""
 if "execution_count" not in st.session_state:
     st.session_state.execution_count = 0
-
+if "current_input" not in st.session_state:
+    st.session_state.current_input = ""
+if "clear_input" not in st.session_state:
+    st.session_state.clear_input = False
 # Initialize with friendly opener only once
 if len(st.session_state.messages) == 0:
     st.session_state.messages.append({
@@ -266,10 +269,7 @@ if st.session_state.show_brand_kit_prompt:
             st.session_state.show_brand_kit_prompt = False
             st.session_state.conversation_stage = "post-brand-generation"
             st.rerun()
-if "current_input" not in st.session_state:
-    st.session_state.current_input = ""
-if "clear_input" not in st.session_state:
-    st.session_state.clear_input = False
+
 # BULLETPROOF CHAT INPUT - ZERO LOOP GUARANTEE
 col1, col2 = st.columns([6, 1])
 with col1:
