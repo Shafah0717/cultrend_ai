@@ -191,42 +191,6 @@ if len(st.session_state.messages) == 0:
         "timestamp": datetime.now(),
         "type": "standard"
     })
-if st.sidebar.button("🔍 Debug Test Recommendations"):
-    print("=== DEBUG TEST ===")
-    if st.session_state.recommendation_service:
-        print("RecommendationService exists")
-        print("Available categories:", list(st.session_state.recommendation_service.products.keys()))
-        
-        # Test with mock profile
-        from models.trend_models import CulturalProfile
-        test_profile = CulturalProfile(
-            profile_id="test",
-            cultural_segments=["jazz enthusiasts", "cultural explorers"],
-            cross_domain_connections={
-                "music": ["jazz"],
-                "lifestyle": ["creative"]
-            },
-            behavioral_indicators={},
-            confidence_score=85.0
-        )
-        
-        test_recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
-            test_profile, None, "products", 3
-        )
-        print(f"Test recommendations: {len(test_recommendations) if test_recommendations else 0}")
-        if test_recommendations:
-            for rec in test_recommendations:
-                print(f"- {rec.get('name', 'Unknown')}")
-        
-        # Display results in the app too
-        st.sidebar.success(f"Found {len(test_recommendations) if test_recommendations else 0} test recommendations")
-        if test_recommendations:
-            for rec in test_recommendations:
-                st.sidebar.write(f"✅ {rec.get('name', 'Unknown')}")
-    else:
-        print("RecommendationService not found!")
-        st.sidebar.error("RecommendationService not found!")
-
 def get_cultrend_avatar_img():
     with open("cultrend_avatar.png", "rb") as image_file:
         encoded = base64.b64encode(image_file.read()).decode()
