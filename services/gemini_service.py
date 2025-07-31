@@ -24,6 +24,53 @@ class GeminiService:
             3: "RECITATION",  # Blocked for copyright
             4: "OTHER"  # Other reason
         }
+        try:
+            api_key = self._get_api_key()
+            if not api_key:
+                print("❌ No API key found")
+                self.model = None
+                return
+            
+            # Test the key immediately
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Quick connection test
+            test_response = self.model.generate_content(
+                "Hello",
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1,
+                    max_output_tokens=10,
+                )
+            )
+            print("✅ Gemini API key verified successfully")
+            
+        except Exception as e:
+            print(f"❌ Gemini API key verification failed: {e}")
+            self.model = None
+    
+    def _get_api_key(self):
+        """Enhanced API key retrieval with logging"""
+        # Try Streamlit secrets
+        try:
+            key = st.secrets["gemini"]["api_key"]
+            if key and len(key) > 20:  # Basic validation
+                print(f"✅ Found API key in Streamlit secrets (length: {len(key)})")
+                return key
+            else:
+                print("⚠️ API key in secrets appears invalid")
+        except Exception as e:
+            print(f"⚠️ Could not access Streamlit secrets: {e}")
+        
+        # Try environment variables
+        for env_var in ["GOOGLE_API_KEY", "GEMINI_API_KEY"]:
+            key = os.getenv(env_var)
+            if key:
+                print(f"✅ Found API key in {env_var}")
+                return key
+        
+        print("❌ No API key found in any location")
+        return None
     
     async def analyze_cultural_trends(self, cultural_profile: CulturalProfile, timeframe: str = "90d") -> List[TrendPrediction]:
         """
