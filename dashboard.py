@@ -372,6 +372,129 @@ with col1:
     )
 with col2:
     send_btn = st.button("✔️ Send")
+if user_input and send_btn:
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input,
+        "timestamp": datetime.now(),
+        "type": "standard"
+    })
+
+    print(f"🔍 DEBUG - User input: '{user_input}'")
+    print(f"🔍 DEBUG - Current conversation stage: {st.session_state.conversation_stage}")
+    
+    # Check for recommendation keywords
+    is_recommendation_request = any(keyword in user_input.lower() for keyword in ["recommend", "recommendations", "suggestion", "products", "shopping"])
+    print(f"🔍 DEBUG - Is recommendation request: {is_recommendation_request}")
+    
+    if is_recommendation_request:
+        print("🔍 DEBUG - Recommendation request detected!")
+        
+        # Check if we have cultural profile and brand kit
+        print(f"🔍 DEBUG - Cultural profile exists: {st.session_state.last_cultural_profile is not None}")
+        print(f"🔍 DEBUG - Conversation stage: {st.session_state.conversation_stage}")
+        
+        # Find brand kit
+        brand_kit = None
+        for message in reversed(st.session_state.messages):
+            if message.get("type") == "brand_kit":
+                brand_kit = message.get("brand_kit")
+                break
+        
+        print(f"🔍 DEBUG - Brand kit found: {brand_kit is not None}")
+        
+        if st.session_state.last_cultural_profile and brand_kit:
+            print("🔍 DEBUG - All prerequisites met, calling recommendation service...")
+            
+            with st.spinner("Finding personalized recommendations..."):
+                try:
+                    recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
+                        st.session_state.last_cultural_profile, 
+                        brand_kit,
+                        recommendation_type="products",
+                        max_recommendations=6
+                    )
+                    
+                    print(f"🔍 DEBUG - Recommendations returned: {len(recommendations) if recommendations else 0}")
+                    
+                    if recommendations and len(recommendations) > 0:
+                        print("🔍 DEBUG - Building product cards...")
+                        
+                        # Build product cards
+                        product_cards = []
+                        for i, recommendation in enumerate(recommendations):
+                            print(f"   Processing recommendation {i+1}: {recommendation.get('name', 'Unknown')}")
+                            
+                            explanation = st.session_state.explanation_service.get_recommendation_explanation(
+                                recommendation, 
+                                st.session_state.last_cultural_profile, 
+                                brand_kit
+                            )
+                            
+                            product_cards.append({
+                                "name": recommendation["name"],
+                                "image": recommendation["image"], 
+                                "link": recommendation["link"],
+                                "price": recommendation.get("price", ""),
+                                "description": recommendation.get("description", ""),
+                                "explanation": explanation
+                            })
+
+                        # Get summary
+                        summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
+                        
+                        print(f"🔍 DEBUG - Adding {len(product_cards)} product cards to messages")
+                        
+                        # Add recommendation message
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
+                            "type": "recommendation",
+                            "items": product_cards,
+                            "timestamp": datetime.now()
+                        })
+                        
+                        print("🔍 DEBUG - Messages updated, calling st.rerun()")
+                    else:
+                        print("🔍 DEBUG - No recommendations found, adding fallback message")
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": "I couldn't find specific recommendations right now. Your preferences are jazz music and local dining - let me try a different approach!",
+                            "timestamp": datetime.now(),
+                            "type": "standard"
+                        })
+                        
+                except Exception as e:
+                    print(f"❌ DEBUG - Error in recommendation flow: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "I encountered an error getting recommendations. Please try again!",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+        else:
+            print("🔍 DEBUG - Missing prerequisites")
+            if not st.session_state.last_cultural_profile:
+                print("   Missing: Cultural profile")
+            if not brand_kit:
+                print("   Missing: Brand kit")
+            
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": "Please complete your cultural analysis and generate your brand identity first!",
+                "timestamp": datetime.now(),
+                "type": "standard"
+            })
+        
+        print("🔍 DEBUG - About to call st.rerun()")
+        st.rerun()
+        
+    else:
+        # Handle your other conversation logic here
+        print("🔍 DEBUG - Not a recommendation request, continuing with other logic...")
 
 def is_smalltalk(content: str) -> bool:
     smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
