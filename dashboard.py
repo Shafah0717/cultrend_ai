@@ -571,167 +571,168 @@ if user_input and send_btn:
                 })
                 st.rerun()
 
-       elif st.session_state.conversation_stage == "post-analysis":
+        elif st.session_state.conversation_stage == "post-analysis":
 
     # Check for brand kit request first
-    if any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
-        if st.session_state.last_cultural_profile:
-            with st.spinner("Crafting your personal brand identity..."):
-                analyzer = st.session_state.analyzer
-                brand_kit = asyncio.run(analyzer.generate_brand_identity(
-                    st.session_state.last_cultural_profile
-                ))
-                
-                # Add brand kit message
+            if any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
+                if st.session_state.last_cultural_profile:
+                    with st.spinner("Crafting your personal brand identity..."):
+                        analyzer = st.session_state.analyzer
+                        brand_kit = asyncio.run(analyzer.generate_brand_identity(
+                            st.session_state.last_cultural_profile
+                        ))
+                        
+                        # Add brand kit message
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": "Here's your personalized Brand Identity Kit based on your cultural DNA:",
+                            "type": "brand_kit",
+                            "brand_kit": brand_kit,
+                            "timestamp": datetime.now()
+                        })
+                        
+                        # Add follow-up message with next steps
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
+                            "timestamp": datetime.now(),
+                            "type": "standard"
+                        })
+                        
+                        # Update conversation stage to post-brand-generation
+                        st.session_state.conversation_stage = "post-brand-generation"
+                        st.session_state.show_brand_kit_prompt = False
+                        st.rerun()
+                else:
+                    # Handle missing cultural profile
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Sorry, I couldn't find your cultural profile. Please try analyzing again.",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+                    st.rerun()
+
+        elif st.session_state.conversation_stage == "post-brand-generation":
+            # ---- DEBUG LOGS ----
+            print("Brand kit:", [m.get("brand_kit") for m in st.session_state.messages if m.get("type") == "brand_kit"])
+            print("Profile:", st.session_state.last_cultural_profile)
+
+            # Handle recommendations request
+            if any(keyword in user_input.lower() for keyword in ["recommend", "suggestions", "products", "shopping", "buy"]):
+                if st.session_state.last_cultural_profile:
+                    # Search for existing brand kit
+                    brand_kit = None
+                    for message in reversed(st.session_state.messages):
+                        if message.get("type") == "brand_kit":
+                            brand_kit = message.get("brand_kit")
+                            break
+
+                    if brand_kit:
+                        with st.spinner("Finding personalized recommendations..."):
+                            # Debug before calling
+                            print("DEBUG - Brand kit:", brand_kit)
+                            print("DEBUG - Profile:", st.session_state.last_cultural_profile)
+
+                            recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
+                                st.session_state.last_cultural_profile, 
+                                brand_kit,
+                                recommendation_type="products",
+                                max_recommendations=6
+                            )
+
+                            print("DEBUG - Recommendations:", recommendations)
+                            
+                            if recommendations:
+                                summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
+                                
+                                product_cards = []
+                                for recommendation in recommendations:
+                                    explanation = st.session_state.explanation_service.get_recommendation_explanation(
+                                        recommendation, 
+                                        st.session_state.last_cultural_profile, 
+                                        brand_kit
+                                    )
+                                    product_cards.append({
+                                        "name": recommendation["name"],
+                                        "image": recommendation["image"], 
+                                        "link": recommendation["link"],
+                                        "price": recommendation.get("price", ""),
+                                        "description": recommendation.get("description", ""),
+                                        "explanation": explanation
+                                    })
+
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
+                                    "type": "recommendation",
+                                    "items": product_cards,
+                                    "timestamp": datetime.now()
+                                })
+
+                                # Add follow-up after recommendations
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": "Would you like to explore more interests or need help with anything else?",
+                                    "timestamp": datetime.now(),
+                                    "type": "standard"
+                                })
+                            else:
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": "I couldn't find specific recommendations for your profile. Try asking again!",
+                                    "timestamp": datetime.now(),
+                                    "type": "standard"
+                                })
+                        st.rerun()
+
+            # Handle specific interests (anime, travel, etc.)
+            elif any(interest in user_input.lower() for interest in ["anime", "travel", "football", "music", "fashion"]):
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": f"Let's explore **{user_input}** through your Cultural Navigator brand lens! I'll analyze how this connects to your brand identity...",
+                    "timestamp": datetime.now()
+                })
+                # Reset to allow new cultural analysis
+                st.session_state.conversation_stage = "friend_talk"
+                st.rerun()
+
+            # Handle brand explanation requests
+            elif "explain" in user_input.lower() and "brand" in user_input.lower():
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": "Here's your personalized Brand Identity Kit based on your cultural DNA:",
-                    "type": "brand_kit",
-                    "brand_kit": brand_kit,
+                    "content": """Your **Cultural Navigator** brand reflects your core cultural DNA:
+
+        **🗺️ Explorer Identity**: You seek authentic experiences across cultures  
+        **📖 Storytelling**: You value narrative and meaning-making  
+        **🤝 Community**: You bridge different cultural spaces  
+        **🔍 Curiosity-Driven**: You're motivated by discovery and exploration
+
+        This brand identity was generated from your cultural preferences and represents how you naturally connect with trends and communities.""",
                     "timestamp": datetime.now()
                 })
                 
-                # Add follow-up message with next steps
+                # Add follow-up
                 st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
+                    "role": "assistant",
+                    "content": "Want to see products that match this brand? Say **'recommendations'** or explore other interests!",
                     "timestamp": datetime.now(),
                     "type": "standard"
                 })
-                
-                # Update conversation stage to post-brand-generation
-                st.session_state.conversation_stage = "post-brand-generation"
-                st.session_state.show_brand_kit_prompt = False
-                st.rerun()
-        else:
-            # Handle missing cultural profile
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": "Sorry, I couldn't find your cultural profile. Please try analyzing again.",
-                "timestamp": datetime.now(),
-                "type": "standard"
-            })
-            st.rerun()
-
-elif st.session_state.conversation_stage == "post-brand-generation":
-    # ---- DEBUG LOGS ----
-    print("Brand kit:", [m.get("brand_kit") for m in st.session_state.messages if m.get("type") == "brand_kit"])
-    print("Profile:", st.session_state.last_cultural_profile)
-
-    # Handle recommendations request
-    if any(keyword in user_input.lower() for keyword in ["recommend", "suggestions", "products", "shopping", "buy"]):
-        if st.session_state.last_cultural_profile:
-            # Search for existing brand kit
-            brand_kit = None
-            for message in reversed(st.session_state.messages):
-                if message.get("type") == "brand_kit":
-                    brand_kit = message.get("brand_kit")
-                    break
-
-            if brand_kit:
-                with st.spinner("Finding personalized recommendations..."):
-                    # Debug before calling
-                    print("DEBUG - Brand kit:", brand_kit)
-                    print("DEBUG - Profile:", st.session_state.last_cultural_profile)
-
-                    recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
-                        st.session_state.last_cultural_profile, 
-                        brand_kit,
-                        recommendation_type="products",
-                        max_recommendations=6
-                    )
-
-                    print("DEBUG - Recommendations:", recommendations)
-                    
-                    if recommendations:
-                        summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
-                        
-                        product_cards = []
-                        for recommendation in recommendations:
-                            explanation = st.session_state.explanation_service.get_recommendation_explanation(
-                                recommendation, 
-                                st.session_state.last_cultural_profile, 
-                                brand_kit
-                            )
-                            product_cards.append({
-                                "name": recommendation["name"],
-                                "image": recommendation["image"], 
-                                "link": recommendation["link"],
-                                "price": recommendation.get("price", ""),
-                                "description": recommendation.get("description", ""),
-                                "explanation": explanation
-                            })
-
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
-                            "type": "recommendation",
-                            "items": product_cards,
-                            "timestamp": datetime.now()
-                        })
-
-                        # Add follow-up after recommendations
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": "Would you like to explore more interests or need help with anything else?",
-                            "timestamp": datetime.now(),
-                            "type": "standard"
-                        })
-                    else:
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": "I couldn't find specific recommendations for your profile. Try asking again!",
-                            "timestamp": datetime.now(),
-                            "type": "standard"
-                        })
                 st.rerun()
 
-    # Handle specific interests (anime, travel, etc.)
-    elif any(interest in user_input.lower() for interest in ["anime", "travel", "football", "music", "fashion"]):
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": f"Let's explore **{user_input}** through your Cultural Navigator brand lens! I'll analyze how this connects to your brand identity...",
-            "timestamp": datetime.now()
-        })
-        # Reset to allow new cultural analysis
-        st.session_state.conversation_stage = "friend_talk"
-        st.rerun()
+            # Default response with helpful suggestions
+            else:
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": """I can help you explore your brand further! Try:
 
-    # Handle brand explanation requests
-    elif "explain" in user_input.lower() and "brand" in user_input.lower():
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": """Your **Cultural Navigator** brand reflects your core cultural DNA:
+        • **"recommendations"** - Products that match your cultural DNA  
+        • **"anime"** / **"travel"** / **"football"** - Explore specific interests  
+        • **"explain my brand"** - Deeper insights into your cultural identity  
+        • Share new interests to expand your cultural profile
 
-**🗺️ Explorer Identity**: You seek authentic experiences across cultures  
-**📖 Storytelling**: You value narrative and meaning-making  
-**🤝 Community**: You bridge different cultural spaces  
-**🔍 Curiosity-Driven**: You're motivated by discovery and exploration
-
-This brand identity was generated from your cultural preferences and represents how you naturally connect with trends and communities.""",
-            "timestamp": datetime.now()
-        })
-        
-        # Add follow-up
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": "Want to see products that match this brand? Say **'recommendations'** or explore other interests!",
-            "timestamp": datetime.now(),
-            "type": "standard"
-        })
-        st.rerun()
-
-    # Default response with helpful suggestions
-    else:
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": """I can help you explore your brand further! Try:
-
-• **"recommendations"** - Products that match your cultural DNA  
-• **"anime"** / **"travel"** / **"football"** - Explore specific interests  
-
-
-What would you like to discover?""",
-            "timestamp": datetime.now()
-        })
-        st.rerun()
+        What would you like to discover?""",
+                    "timestamp": datetime.now()
+                })
+                st.rerun()
