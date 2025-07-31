@@ -299,8 +299,9 @@ with col1:
 with col2:
     send_btn = st.button("✔️ Send")
 
-# SINGLE CONSOLIDATED MAIN CHAT LOGIC - FIXED VERSION
+# SINGLE INPUT PROCESSING BLOCK - NOTHING RUNS WITHOUT USER ACTION
 if user_input and send_btn:
+    # Add user message
     st.session_state.messages.append({
         "role": "user",
         "content": user_input,
@@ -308,8 +309,12 @@ if user_input and send_btn:
         "type": "standard"
     })
     
-    # Handle recommendation requests FIRST (highest priority)
+    # Variable to track if we've handled the input
+    handled = False
+    
+    # 1. Handle recommendation requests
     if any(keyword in user_input.lower() for keyword in ["recommend", "recommendations", "suggestion", "products"]):
+        handled = True
         if st.session_state.last_cultural_profile:
             brand_kit = None
             for message in reversed(st.session_state.messages):
@@ -318,264 +323,159 @@ if user_input and send_btn:
                     break
             
             if brand_kit:
-                with st.spinner("Finding personalized recommendations for you..."):
+                with st.spinner("Finding personalized recommendations..."):
                     recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
-                        st.session_state.last_cultural_profile, 
-                        brand_kit,
-                        recommendation_type="products",
-                        max_recommendations=6
+                        st.session_state.last_cultural_profile, brand_kit, "products", 6
                     )
                     
-                    if recommendations and len(recommendations) > 0:
+                    if recommendations:
                         product_cards = []
-                        for recommendation in recommendations:
+                        for rec in recommendations:
                             explanation = st.session_state.explanation_service.get_recommendation_explanation(
-                                recommendation, 
-                                st.session_state.last_cultural_profile, 
-                                brand_kit
+                                rec, st.session_state.last_cultural_profile, brand_kit
                             )
                             product_cards.append({
-                                "name": recommendation["name"],
-                                "image": recommendation["image"], 
-                                "link": recommendation["link"],
-                                "price": recommendation.get("price", ""),
-                                "description": recommendation.get("description", ""),
+                                "name": rec["name"], "image": rec["image"], "link": rec["link"],
+                                "price": rec.get("price", ""), "description": rec.get("description", ""),
                                 "explanation": explanation
                             })
-
-                        summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
                         
+                        summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
-                            "type": "recommendation",
-                            "items": product_cards,
-                            "timestamp": datetime.now()
+                            "type": "recommendation", "items": product_cards, "timestamp": datetime.now()
                         })
                     else:
                         st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": "I couldn't find specific recommendations for you right now, but please check back later!",
-                            "timestamp": datetime.now(),
-                            "type": "standard"
+                            "role": "assistant", "content": "I couldn't find recommendations right now.",
+                            "timestamp": datetime.now(), "type": "standard"
                         })
             else:
                 st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": "Please generate your brand identity first to get the best recommendations!",
-                    "timestamp": datetime.now(),
-                    "type": "standard"
+                    "role": "assistant", "content": "Please generate your brand identity first!",
+                    "timestamp": datetime.now(), "type": "standard"
                 })
         else:
             st.session_state.messages.append({
-                "role": "assistant",
-                "content": "I need to analyze your cultural DNA first. Please tell me about your interests or type 'analyze'.",
-                "timestamp": datetime.now(),
-                "type": "standard"
+                "role": "assistant", "content": "I need to analyze your cultural DNA first.",
+                "timestamp": datetime.now(), "type": "standard"
             })
     
-    # Handle brand kit requests
+    # 2. Handle brand kit requests
     elif any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
+        handled = True
         if st.session_state.last_cultural_profile:
-            with st.spinner("Crafting your personal brand identity..."):
+            with st.spinner("Creating your brand identity..."):
                 analyzer = st.session_state.analyzer
-                brand_kit = asyncio.run(analyzer.generate_brand_identity(
-                    st.session_state.last_cultural_profile
-                ))
+                brand_kit = asyncio.run(analyzer.generate_brand_identity(st.session_state.last_cultural_profile))
                 
                 st.session_state.messages.append({
                     "role": "assistant",
-                    "content": "Here's your personalized Brand Identity Kit based on your cultural DNA:",
-                    "type": "brand_kit",
-                    "brand_kit": brand_kit,
-                    "timestamp": datetime.now()
-                })
-                
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
-                    "timestamp": datetime.now(),
-                    "type": "standard"
+                    "content": "Here's your personalized Brand Identity Kit:",
+                    "type": "brand_kit", "brand_kit": brand_kit, "timestamp": datetime.now()
                 })
                 
                 st.session_state.conversation_stage = "post-brand-generation"
                 st.session_state.show_brand_kit_prompt = False
         else:
             st.session_state.messages.append({
-                "role": "assistant",
-                "content": "Sorry, I couldn't find your cultural profile. Please try analyzing again.",
-                "timestamp": datetime.now(),
-                "type": "standard"
+                "role": "assistant", "content": "Please complete your cultural analysis first.",
+                "timestamp": datetime.now(), "type": "standard"
             })
     
-    # Handle specific content detection (anime, travel, football)
-    else:
+    # 3. Handle specific content (anime, travel, football)
+    elif not handled:
         category, key = detect_specific_content(user_input)
-        if category == "anime":
-            d = popular_anime[key]
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": f"<b>{d['title']}</b><br>{d['desc']}",
-                "type": "recommendation",
-                "items": d["products"],
-                "timestamp": datetime.now()
-            })
-        elif category == "travel":
-            d = next(area for area in travel_areas if area["title"] == key)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": f"<b>{d['title']}</b><br>{d['desc']}<br><a href='{d['flight_link']}' target='_blank'>Find Flights</a>",
-                "type": "standard",
-                "timestamp": datetime.now()
-            })
-        elif category == "football":
-            d = football_clubs[key]
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": f"<b>{d['title']}</b><br>{d['desc']}",
-                "type": "recommendation",
-                "items": d["products"],
-                "timestamp": datetime.now()
-            })
-        else:
-            # General conversation logic
-            if st.session_state.conversation_stage == "friend_talk":
-                st.session_state.smalltalk_turns += 1
-                if is_smalltalk(user_input) and st.session_state.smalltalk_turns < 2:
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": random.choice(smalltalk_questions),
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                else:
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": interest_prompt,
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                    st.session_state.conversation_stage = "collecting"
+        if category:
+            handled = True
+            if category == "anime":
+                d = popular_anime[key]
+                st.session_state.messages.append({
+                    "role": "assistant", "content": f"<b>{d['title']}</b><br>{d['desc']}",
+                    "type": "recommendation", "items": d["products"], "timestamp": datetime.now()
+                })
+            elif category == "travel":
+                d = next(area for area in travel_areas if area["title"] == key)
+                st.session_state.messages.append({
+                    "role": "assistant", "content": f"<b>{d['title']}</b><br>{d['desc']}<br><a href='{d['flight_link']}' target='_blank'>Find Flights</a>",
+                    "type": "standard", "timestamp": datetime.now()
+                })
+            elif category == "football":
+                d = football_clubs[key]
+                st.session_state.messages.append({
+                    "role": "assistant", "content": f"<b>{d['title']}</b><br>{d['desc']}",
+                    "type": "recommendation", "items": d["products"], "timestamp": datetime.now()
+                })
+    
+    # 4. Handle conversation stages ONLY if not handled above
+    if not handled:
+        if st.session_state.conversation_stage == "friend_talk":
+            st.session_state.smalltalk_turns += 1
+            if is_smalltalk(user_input) and st.session_state.smalltalk_turns < 2:
+                st.session_state.messages.append({
+                    "role": "assistant", "content": random.choice(smalltalk_questions),
+                    "timestamp": datetime.now(), "type": "standard"
+                })
+            else:
+                st.session_state.messages.append({
+                    "role": "assistant", "content": interest_prompt,
+                    "timestamp": datetime.now(), "type": "standard"
+                })
+                st.session_state.conversation_stage = "collecting"
 
-            elif st.session_state.conversation_stage == "collecting":
-                history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
+        elif st.session_state.conversation_stage == "collecting":
+            history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
+            
+            if "analyze" in user_input.lower() or history_len >= 3:
+                prefs = extract_user_preferences(st.session_state.messages)
                 
-                if "analyze" in user_input.lower() or history_len >= 3:
-                    prefs = extract_user_preferences(st.session_state.messages)
+                with st.spinner("Analyzing your cultural DNA..."):
+                    analyzer = st.session_state.analyzer
+                    analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
+                    profile = getattr(analysis, 'cultural_profile', None)
+                
+                if profile and getattr(profile, 'cultural_segments', None):
+                    st.session_state.last_cultural_profile = profile
                     
-                    profile = None
-                    with st.spinner("Analyzing your cultural DNA..."):
-                        analyzer = st.session_state.analyzer
-                        try:
-                            analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
-                            
-                            if hasattr(analysis, 'cultural_profile') and analysis.cultural_profile:
-                                profile = analysis.cultural_profile
-                            else:
-                                profile = analysis
-                        except Exception as e:
-                            print(f"Error during analysis: {e}")
-
-                    valid_profile = False
-                    segments = []
+                    resp_lines = ["Here's what I've learned about your trend vibe!\n"]
+                    resp_lines.append(f"**Your Cultural Segments:** {', '.join(profile.cultural_segments)}")
+                    for i, pred in enumerate(analysis.predictions[:3], 1):
+                        resp_lines.append(f"{i}. {pred.predicted_trend} (Confidence: {pred.confidence_score:.0f}%)")
+                    resp_lines.append("\nReady to create your Brand DNA? Click the button below!")
                     
-                    if profile:
-                        if hasattr(profile, 'cultural_segments') and profile.cultural_segments:
-                            segments = profile.cultural_segments
-                            valid_profile = True
-                        elif hasattr(profile, 'enhanced_cultural_segments') and profile.enhanced_cultural_segments:
-                            segments = profile.enhanced_cultural_segments
-                            valid_profile = True
-                        elif hasattr(profile, 'segments') and profile.segments:
-                            segments = profile.segments
-                            valid_profile = True
+                    st.session_state.messages.append({
+                        "role": "assistant", "content": "\n".join(resp_lines),
+                        "timestamp": datetime.now(), "type": "standard"
+                    })
                     
-                    if valid_profile:
-                        st.session_state.last_cultural_profile = profile
-                        
-                        resp_lines = []
-                        resp_lines.append("Here's what I've learned about your trend vibe!\n")
-                        resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
-                        resp_lines.append(f"Timeframe: {getattr(analysis, 'timeframe', '90d')}")
-                        resp_lines.append("")
-                        resp_lines.append("Top Trends")
-                        resp_lines.append("")
-                        
-                        for i, pred in enumerate(analysis.predictions, 1):
-                            resp_lines.append(f"{i}. {pred.predicted_trend}")
-                            resp_lines.append(f"   - Category: {pred.product_category}")
-                            resp_lines.append(f"   - Confidence: {pred.confidence_score:.0f}%")
-                            resp_lines.append(f"   - Timeline: {pred.timeline_days:.0f} days")
-                            resp_lines.append(f"   - Target Audience: {', '.join(pred.target_audience)}")
-                            reason = getattr(pred, 'cultural_reasoning', '')
-                            if reason:
-                                resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
-                            resp_lines.append("")
-                        
-                        resp_lines.append(f"**Your Cultural Segments:** {', '.join(segments)}")
-                        resp_lines.append("Would you like some recommendations for products or experiences that match your vibe?")
-                        
-                        resp = "\n".join(resp_lines)
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": resp,
-                            "timestamp": datetime.now(),
-                            "type": "standard"
-                        })
-                        
-                        st.session_state.show_brand_kit_prompt = True
-                        st.session_state.conversation_stage = "post-analysis"
-                    else:
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": "I had a little trouble building a full cultural profile from those preferences. Could you tell me more about your favorite music, fashion styles, or hobbies? The more details, the better!",
-                            "timestamp": datetime.now(),
-                            "type": "standard"
-                        })
+                    st.session_state.show_brand_kit_prompt = True
+                    st.session_state.conversation_stage = "post-analysis"
                 else:
                     st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": random.choice([
-                            "I love your energy! Shall we keep exploring your interests? Share more or type 'analyze' if you want me to analyze your profile."
-                        ]),
-                        "timestamp": datetime.now(),
-                        "type": "standard"
+                        "role": "assistant", "content": "Could you tell me more about your interests?",
+                        "timestamp": datetime.now(), "type": "standard"
                     })
-
-            # FIXED: Only respond to specific keywords, not every message
-            elif st.session_state.conversation_stage == "post-analysis":
-                if any(word in user_input.lower() for word in ["help", "what", "how", "next", "now"]):
+            else:
+                st.session_state.messages.append({
+                    "role": "assistant", "content": "Tell me more about your interests, or type 'analyze' when ready!",
+                    "timestamp": datetime.now(), "type": "standard"
+                })
+        
+        # CRITICAL: These stages now ONLY respond to greetings, not every message
+        elif st.session_state.conversation_stage in ["post-analysis", "post-brand-generation"]:
+            if user_input.lower().strip() in ["hey", "hi", "hello"]:
+                if st.session_state.conversation_stage == "post-analysis":
                     st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Your cultural analysis is complete! You can generate your Brand DNA with the button below or ask me about something else.",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
+                        "role": "assistant", "content": "Hey! Your analysis is ready. Generate your Brand DNA below!",
+                        "timestamp": datetime.now(), "type": "standard"
                     })
-                elif user_input.lower().strip() in ["hey", "hi", "hello"]:
+                else:
                     st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Hey! Your cultural analysis is ready. Feel free to generate your Brand DNA or ask me anything else!",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
+                        "role": "assistant", "content": "Hey! Ready for recommendations? Just type 'recommendations'!",
+                        "timestamp": datetime.now(), "type": "standard"
                     })
-                # Otherwise, don't auto-respond to every message
-
-            elif st.session_state.conversation_stage == "post-brand-generation":
-                if any(word in user_input.lower() for word in ["help", "what", "how", "next", "now"]):
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Your brand identity is ready! Just say 'recommendations' to see products that match your new vibe.",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                elif user_input.lower().strip() in ["hey", "hi", "hello"]:
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Hey there! Ready for some personalized recommendations? Just type 'recommendations' when you're ready!",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                # Otherwise, don't auto-respond to every message
-
-    # CRITICAL FIX: Single st.rerun() at the very end
+            # For any other input in these stages, do nothing (no automatic responses)
+    
+    # Single rerun at the end
     st.rerun()
