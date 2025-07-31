@@ -192,6 +192,41 @@ def detect_specific_content(user_message: str):
             return ("football", key)
     return (None, None)
 
+def is_smalltalk(content: str) -> bool:
+    smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
+    return any(kw in content.lower() for kw in smalltalk_keywords)
+
+def extract_user_preferences(messages):
+    """Enhanced preference extraction with broader keyword coverage"""
+    prefs_text = " ".join([msg["content"].lower() for msg in messages if msg["role"] == "user"])
+    
+    music_keywords = ["pop", "indie", "rock", "jazz", "classical", "electronic", "hip hop", "r&b", "folk", "country", "blues", "metal", "punk", "reggae", "soul", "funk", "disco", "house", "techno", "ambient"]
+    fashion_keywords = ["minimalist", "vintage", "streetwear", "sustainable", "luxury", "casual", "formal", "bohemian", "preppy", "gothic", "punk", "athletic", "trendy", "classic", "avant-garde"]
+    dining_keywords = ["local", "organic", "vegan", "vegetarian", "italian", "japanese", "chinese", "mexican", "indian", "thai", "french", "mediterranean", "artisanal", "craft", "farm-to-table", "street food", "fine dining"]
+    entertainment_keywords = ["gaming", "movies", "music", "books", "art", "theater", "comedy", "podcasts", "streaming", "concerts", "festivals", "museums", "galleries", "sports", "outdoor", "travel"]
+    lifestyle_keywords = ["gym","wellness", "fitness", "yoga", "meditation", "sustainability", "minimalism", "technology", "innovation", "entrepreneurship", "creativity", "community", "volunteering", "travel", "adventure", "learning"]
+    
+    music = {w for w in music_keywords if w in prefs_text}
+    fashion = {w for w in fashion_keywords if w in prefs_text}
+    dining = {w for w in dining_keywords if w in prefs_text}
+    entertainment = {w for w in entertainment_keywords if w in prefs_text}
+    lifestyle = {w for w in lifestyle_keywords if w in prefs_text}
+    
+    print(f"🔍 INPUT CHECK - Extracted preferences:")
+    print(f"   🎵 Music: {list(music)}")
+    print(f"   👔 Fashion: {list(fashion)}")
+    print(f"   🍽️ Dining: {list(dining)}")
+    print(f"   🎬 Entertainment: {list(entertainment)}")
+    print(f"   🏡 Lifestyle: {list(lifestyle)}")
+    
+    return UserPreferences(
+        music_genres=list(music),
+        fashion_styles=list(fashion),
+        dining_preferences=list(dining),
+        entertainment_types=list(entertainment),
+        lifestyle_choices=list(lifestyle)
+    )
+
 # --- Chat History Renderer ---
 for message in st.session_state.messages:
     if message.get("type") == "recommendation":
@@ -254,51 +289,17 @@ if st.session_state.show_brand_kit_prompt:
             st.error("Couldn't find your cultural profile. Please try analyzing again.")
             st.session_state.show_brand_kit_prompt = False
 
+# CHAT INPUT
 col1, col2 = st.columns([6, 1])
 with col1:
     user_input = st.text_input("Your message:", "",
-        key="main_chat_input",  # FIXED: Use stable key
+        key="main_chat_input",
         label_visibility="collapsed"
     )
 with col2:
     send_btn = st.button("✔️ Send")
 
-def is_smalltalk(content: str) -> bool:
-    smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
-    return any(kw in content.lower() for kw in smalltalk_keywords)
-
-def extract_user_preferences(messages):
-    """Enhanced preference extraction with broader keyword coverage"""
-    prefs_text = " ".join([msg["content"].lower() for msg in messages if msg["role"] == "user"])
-    
-    music_keywords = ["pop", "indie", "rock", "jazz", "classical", "electronic", "hip hop", "r&b", "folk", "country", "blues", "metal", "punk", "reggae", "soul", "funk", "disco", "house", "techno", "ambient"]
-    fashion_keywords = ["minimalist", "vintage", "streetwear", "sustainable", "luxury", "casual", "formal", "bohemian", "preppy", "gothic", "punk", "athletic", "trendy", "classic", "avant-garde"]
-    dining_keywords = ["local", "organic", "vegan", "vegetarian", "italian", "japanese", "chinese", "mexican", "indian", "thai", "french", "mediterranean", "artisanal", "craft", "farm-to-table", "street food", "fine dining"]
-    entertainment_keywords = ["gaming", "movies", "music", "books", "art", "theater", "comedy", "podcasts", "streaming", "concerts", "festivals", "museums", "galleries", "sports", "outdoor", "travel"]
-    lifestyle_keywords = ["gym","wellness", "fitness", "yoga", "meditation", "sustainability", "minimalism", "technology", "innovation", "entrepreneurship", "creativity", "community", "volunteering", "travel", "adventure", "learning"]
-    
-    music = {w for w in music_keywords if w in prefs_text}
-    fashion = {w for w in fashion_keywords if w in prefs_text}
-    dining = {w for w in dining_keywords if w in prefs_text}
-    entertainment = {w for w in entertainment_keywords if w in prefs_text}
-    lifestyle = {w for w in lifestyle_keywords if w in prefs_text}
-    
-    print(f"🔍 INPUT CHECK - Extracted preferences:")
-    print(f"   🎵 Music: {list(music)}")
-    print(f"   👔 Fashion: {list(fashion)}")
-    print(f"   🍽️ Dining: {list(dining)}")
-    print(f"   🎬 Entertainment: {list(entertainment)}")
-    print(f"   🏡 Lifestyle: {list(lifestyle)}")
-    
-    return UserPreferences(
-        music_genres=list(music),
-        fashion_styles=list(fashion),
-        dining_preferences=list(dining),
-        entertainment_types=list(entertainment),
-        lifestyle_choices=list(lifestyle)
-    )
-
-# --- SINGLE CONSOLIDATED MAIN CHAT LOGIC ---
+# SINGLE CONSOLIDATED MAIN CHAT LOGIC - FIXED VERSION
 if user_input and send_btn:
     st.session_state.messages.append({
         "role": "user",
@@ -309,16 +310,12 @@ if user_input and send_btn:
     
     # Handle recommendation requests FIRST (highest priority)
     if any(keyword in user_input.lower() for keyword in ["recommend", "recommendations", "suggestion", "products"]):
-        print("🔍 DEBUG - Recommendation request detected")
-        
         if st.session_state.last_cultural_profile:
             brand_kit = None
             for message in reversed(st.session_state.messages):
                 if message.get("type") == "brand_kit":
                     brand_kit = message.get("brand_kit")
                     break
-            
-            print(f"🔍 DEBUG - Brand kit found: {brand_kit is not None}")
             
             if brand_kit:
                 with st.spinner("Finding personalized recommendations for you..."):
@@ -328,8 +325,6 @@ if user_input and send_btn:
                         recommendation_type="products",
                         max_recommendations=6
                     )
-                    
-                    print(f"🔍 DEBUG - Recommendations returned: {len(recommendations) if recommendations else 0}")
                     
                     if recommendations and len(recommendations) > 0:
                         product_cards = []
@@ -537,10 +532,6 @@ if user_input and send_btn:
                             "timestamp": datetime.now(),
                             "type": "standard"
                         })
-                        print("⚠️ Cultural profile creation failed despite trend prediction")
-                        print(f"Profile object exists: {profile is not None}")
-                        if profile:
-                            print(f"Profile attributes: {dir(profile)}")
                 else:
                     st.session_state.messages.append({
                         "role": "assistant",
@@ -551,21 +542,40 @@ if user_input and send_btn:
                         "type": "standard"
                     })
 
+            # FIXED: Only respond to specific keywords, not every message
             elif st.session_state.conversation_stage == "post-analysis":
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": "Your cultural analysis is complete! You can generate your Brand DNA with the button below or ask me about something else.",
-                    "timestamp": datetime.now(),
-                    "type": "standard"
-                })
+                if any(word in user_input.lower() for word in ["help", "what", "how", "next", "now"]):
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Your cultural analysis is complete! You can generate your Brand DNA with the button below or ask me about something else.",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+                elif user_input.lower().strip() in ["hey", "hi", "hello"]:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Hey! Your cultural analysis is ready. Feel free to generate your Brand DNA or ask me anything else!",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+                # Otherwise, don't auto-respond to every message
 
             elif st.session_state.conversation_stage == "post-brand-generation":
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": "Your brand identity is ready! Just say 'recommendations' to see products that match your new vibe.",
-                    "timestamp": datetime.now(),
-                    "type": "standard"
-                })
+                if any(word in user_input.lower() for word in ["help", "what", "how", "next", "now"]):
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Your brand identity is ready! Just say 'recommendations' to see products that match your new vibe.",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+                elif user_input.lower().strip() in ["hey", "hi", "hello"]:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Hey there! Ready for some personalized recommendations? Just type 'recommendations' when you're ready!",
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+                # Otherwise, don't auto-respond to every message
 
     # CRITICAL FIX: Single st.rerun() at the very end
     st.rerun()
