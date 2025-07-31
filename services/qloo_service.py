@@ -25,6 +25,14 @@ class QlooService:
     
     def __init__(self):
         """Initialize Qloo service with configuration and connection settings."""
+
+        self.BRAND_RELEVANT_TAGS = [
+            'urn:tag:genre:brand:fashion',
+            'urn:tag:genre:brand:lifestyle', 
+            'urn:tag:genre:brand:entertainment',
+            'urn:tag:genre:brand:technology',
+            'urn:tag:genre:brand:food_and_beverage'
+        ]
         self.base_url = "https://hackathon.api.qloo.com"
         self.headers = {
             "X-Api-Key": settings.qloo_api_key,

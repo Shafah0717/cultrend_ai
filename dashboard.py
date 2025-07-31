@@ -650,16 +650,11 @@ if user_input and send_btn:
                     st.rerun()
 
         elif st.session_state.conversation_stage == "post-brand-generation":
-            print(f"DEBUG - Current conversation stage: {st.session_state.conversation_stage}")
-            print(f"DEBUG - User Input: '{user_input}'")
-            
-            # Handle recommendations request
-            if any(keyword in user_input.lower() for keyword in ["recommend", "suggestions", "products", "shopping", "buy"]):
-                print("DEBUG - Recommendation request detected")
+    # Handle recommendations request
+            if any(keyword in user_input.lower() for keyword in ["recommend", "recommendations", "suggestion", "products"]):
+                print("🔍 DEBUG - Recommendation request detected")
                 
                 if st.session_state.last_cultural_profile:
-                    print("DEBUG - Cultural profile found")
-                    
                     # Search for existing brand kit
                     brand_kit = None
                     for message in reversed(st.session_state.messages):
@@ -667,99 +662,43 @@ if user_input and send_btn:
                             brand_kit = message.get("brand_kit")
                             break
                     
-                    print(f"DEBUG - Brand kit found: {brand_kit is not None}")
+                    print(f"🔍 DEBUG - Brand kit found: {brand_kit is not None}")
                     
                     if brand_kit:
-                        # Add immediate response to show system is working
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": "Let me find some perfect recommendations for you! 🎯",
-                            "timestamp": datetime.now(),
-                            "type": "standard"
-                        })
-                        
                         with st.spinner("Finding personalized recommendations..."):
-                            # Debug before calling
-                            print("DEBUG - About to call recommendation service")
+                            print("🔍 DEBUG - About to call recommendation service")
                             
-                            try:
-                                recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
-                                    st.session_state.last_cultural_profile, 
-                                    brand_kit,
-                                    recommendation_type="products",
-                                    max_recommendations=6
-                                )
-                                print(f"DEBUG - Recommendations returned: {len(recommendations) if recommendations else 0}")
-                            except Exception as e:
-                                print(f"DEBUG - Recommendation service error: {e}")
-                                recommendations = None
-
-                            # Always provide recommendations (fallback if needed)
-                            if not recommendations or len(recommendations) == 0:
-                                print("DEBUG - Using fallback recommendations")
-                                recommendations = [
-                                    {
-                                        "name": "Jazz-Inspired Premium Mug",
-                                        "image": "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=400",
-                                        "link": "https://example.com/jazz-mug",
-                                        "price": "$15",
-                                        "description": "A stylish ceramic mug perfect for jazz lovers.",
-                                        "explanation": {"main": "This matches your jazz music preferences and Cultural Navigator brand identity."}
-                                    },
-                                    {
-                                        "name": "Vinyl Record Player",
-                                        "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400",
-                                        "link": "https://example.com/vinyl-player",
-                                        "price": "$220",
-                                        "description": "High-quality turntable for authentic music experience.",
-                                        "explanation": {"main": "Perfect for enjoying your jazz collection with rich, authentic sound."}
-                                    },
-                                    {
-                                        "name": "Cultural Explorer Notebook",
-                                        "image": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400",
-                                        "link": "https://example.com/notebook",
-                                        "price": "$12",
-                                        "description": "Premium notebook for documenting discoveries.",
-                                        "explanation": {"main": "Aligns with your Cultural Navigator brand - perfect for journaling."}
-                                    }
-                                ]
+                            recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
+                                st.session_state.last_cultural_profile, 
+                                brand_kit,
+                                recommendation_type="products",
+                                max_recommendations=6
+                            )
                             
-                            # Build product cards
-                            product_cards = []
-                            for recommendation in recommendations:
-                                # Ensure required keys exist
-                                if not all(key in recommendation for key in ["name", "image", "link"]):
-                                    print(f"DEBUG - Skipping malformed recommendation: {recommendation}")
-                                    continue
-                                    
-                                try:
+                            print(f"🔍 DEBUG - Recommendations returned: {len(recommendations) if recommendations else 0}")
+                            
+                            if recommendations and len(recommendations) > 0:
+                                # Build product cards
+                                product_cards = []
+                                for recommendation in recommendations:
                                     explanation = st.session_state.explanation_service.get_recommendation_explanation(
                                         recommendation, 
                                         st.session_state.last_cultural_profile, 
                                         brand_kit
                                     )
-                                except:
-                                    explanation = recommendation.get("explanation", {"main": "Recommended for you"})
-                                
-                                product_cards.append({
-                                    "name": recommendation["name"],
-                                    "image": recommendation["image"], 
-                                    "link": recommendation["link"],
-                                    "price": recommendation.get("price", ""),
-                                    "description": recommendation.get("description", ""),
-                                    "explanation": explanation
-                                })
+                                    product_cards.append({
+                                        "name": recommendation["name"],
+                                        "image": recommendation["image"], 
+                                        "link": recommendation["link"],
+                                        "price": recommendation.get("price", ""),
+                                        "description": recommendation.get("description", ""),
+                                        "explanation": explanation
+                                    })
 
-                            if product_cards:
-                                print(f"DEBUG - About to display {len(product_cards)} product cards")
-                                
                                 # Get summary
-                                try:
-                                    summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
-                                except:
-                                    summary = "Based on your cultural DNA and brand identity, here are some personalized recommendations:"
-
-                                # Add recommendation message with product cards
+                                summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
+                                
+                                # Add recommendation message
                                 st.session_state.messages.append({
                                     "role": "assistant",
                                     "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
@@ -767,39 +706,22 @@ if user_input and send_btn:
                                     "items": product_cards,
                                     "timestamp": datetime.now()
                                 })
-
-                                # Add follow-up message
-                                st.session_state.messages.append({
-                                    "role": "assistant",
-                                    "content": "These recommendations are tailored specifically to your Cultural Navigator brand! Would you like to explore more interests?",
-                                    "timestamp": datetime.now(),
-                                    "type": "standard"
-                                })
+                                
+                                print(f"✅ DEBUG - Added {len(product_cards)} product cards to messages")
                             else:
                                 st.session_state.messages.append({
                                     "role": "assistant",
-                                    "content": "I'm having trouble finding specific recommendations right now. Please try again or explore other interests!",
+                                    "content": "I couldn't find specific recommendations right now. Please try again!",
                                     "timestamp": datetime.now(),
                                     "type": "standard"
                                 })
                         
-                        print("DEBUG - About to call st.rerun()")
                         st.rerun()
                     else:
-                        print("DEBUG - No brand kit found")
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": "I couldn't find your brand identity. Please generate your brand kit first by clicking the button above!",
+                            "content": "Please generate your brand identity first!",
                             "timestamp": datetime.now(),
                             "type": "standard"
                         })
                         st.rerun()
-                else:
-                    print("DEBUG - No cultural profile found")
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "I couldn't find your cultural profile. Please analyze your preferences first!",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                    st.rerun()
