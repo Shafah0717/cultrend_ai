@@ -372,9 +372,8 @@ with col1:
     )
 with col2:
     send_btn = st.button("✔️ Send")
-if user_input and send_btn and not st.session_state.processing_input:
-    # Set flag to prevent duplicate processing
-    st.session_state.processing_input = True
+if "processing_input" not in st.session_state:
+    st.session_state.processing_input = False
     
     # Add user message
     st.session_state.messages.append({
