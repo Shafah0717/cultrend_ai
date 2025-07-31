@@ -104,6 +104,10 @@ if "recommendation_service" not in st.session_state:
     st.session_state.recommendation_service = RecommendationService()
 if "explanation_service" not in st.session_state:
     st.session_state.explanation_service = ExplanationService()
+if "current_input" not in st.session_state:
+    st.session_state.current_input = ""
+if "clear_input" not in st.session_state:
+    st.session_state.clear_input = False
 if "input_counter" not in st.session_state:
     st.session_state.input_counter = 0
 
@@ -268,7 +272,8 @@ if st.session_state.show_brand_kit_prompt:
             st.session_state.show_brand_kit_prompt = False
             st.session_state.conversation_stage = "post-brand-generation"
             st.rerun()
-
+if "input_counter" not in st.session_state:
+    st.session_state.input_counter = 0
 # BULLETPROOF CHAT INPUT - ZERO LOOP GUARANTEE
 col1, col2 = st.columns([6, 1])
 with col1:
@@ -278,7 +283,7 @@ with col1:
         placeholder="Type your message here..."
     )
     # Update session state with current input
-    st.session_state.current_input = user_input
+    
 with col2:
     send_btn = st.button("✔️ Send")
 
