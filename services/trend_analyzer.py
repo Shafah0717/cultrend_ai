@@ -8,30 +8,32 @@ import json
 import re
 
 def create_brand_identity_prompt(cultural_profile: CulturalProfile) -> str:
-    """Enhanced prompt that leverages rich Qloo cultural data for authentic brand generation"""
+    """
+    Enhanced prompt that leverages rich Qloo cultural data for authentic brand generation
+    """
     # Extract comprehensive cultural data
     segments = getattr(cultural_profile, 'cultural_segments', [])
     enhanced_segments = getattr(cultural_profile, 'enhanced_cultural_segments', [])
     all_segments = segments + enhanced_segments
     
     connections = getattr(cultural_profile, 'cross_domain_connections', {})
-    brands = connections.get('brands', [])[:5]
-    artists = connections.get('artists', [])[:5]
-    places = connections.get('places', [])[:3]
+    brands = connections.get('brands', [])[:5]  # Top 5 brands
+    artists = connections.get('artists', [])[:5]  # Top 5 artists
+    places = connections.get('places', [])[:3]   # Top 3 places
     
     behavioral = getattr(cultural_profile, 'behavioral_indicators', {})
     early_adopter = behavioral.get('early_adopter', 0)
     cultural_openness = behavioral.get('cultural_openness', 0)
     
-    # Build rich cultural context (FIXED: Unicode bullets replaced with dashes)
+    # Build rich cultural context
     cultural_context = f"""
 **CULTURAL IDENTITY ANALYSIS:**
-- Primary Segments: {', '.join(all_segments[:3]) if all_segments else 'Creative Individual'}
-- Brand Affinities: {', '.join(brands) if brands else 'Emerging brands, authentic experiences'}
-- Artist/Creator Influences: {', '.join(artists) if artists else 'Independent creators, authentic voices'}
-- Place Connections: {', '.join(places) if places else 'Local communities, creative spaces'}
-- Innovation Level: {'High' if early_adopter > 0.7 else 'Moderate' if early_adopter > 0.4 else 'Selective'} early adopter
-- Cultural Openness: {'Very High' if cultural_openness > 0.8 else 'High' if cultural_openness > 0.6 else 'Moderate'}
+• Primary Segments: {', '.join(all_segments[:3]) if all_segments else 'Creative Individual'}
+• Brand Affinities: {', '.join(brands) if brands else 'Emerging brands, authentic experiences'}
+• Artist/Creator Influences: {', '.join(artists) if artists else 'Independent creators, authentic voices'}
+• Place Connections: {', '.join(places) if places else 'Local communities, creative spaces'}
+• Innovation Level: {'High' if early_adopter > 0.7 else 'Moderate' if early_adopter > 0.4 else 'Selective'} early adopter
+• Cultural Openness: {'Very High' if cultural_openness > 0.8 else 'High' if cultural_openness > 0.6 else 'Moderate'}
 """
 
     prompt = f"""
@@ -58,11 +60,11 @@ You are an expert brand strategist working with a client who has undergone deep 
 }}
 
 **BRAND GUIDELINES:**
-- Reflect their cultural segments in the naming and tone
-- Color palette should mirror their aesthetic preferences and lifestyle
-- Mission should connect personal values to professional/creative purpose  
-- Keywords should be searchable and relevant to their industries/interests
-- Bio should be compelling enough to attract their target community
+• Reflect their cultural segments in the naming and tone
+• Color palette should mirror their aesthetic preferences and lifestyle
+• Mission should connect personal values to professional/creative purpose  
+• Keywords should be searchable and relevant to their industries/interests
+• Bio should be compelling enough to attract their target community
 
 Focus on authenticity over generic appeal. This brand should feel unmistakably THEIRS.
 """
@@ -72,158 +74,83 @@ class TrendAnalyzer:
     """Main trend analysis engine combining Qloo + Gemini insights"""
     
     def __init__(self):
-        try:
-            self.qloo_service = QlooService()
-            self.gemini_service = GeminiService()
-            print("✅ TrendAnalyzer initialized successfully")
-        except Exception as e:
-            print(f"⚠️ TrendAnalyzer initialization error: {e}")
-            self.qloo_service = None
-            self.gemini_service = None
+        self.qloo_service = QlooService()
+        self.gemini_service = GeminiService()
     
     async def predict_trends(self, user_preferences: UserPreferences, timeframe: str = "90d") -> TrendAnalysis:
         """Complete trend prediction pipeline"""
-        try:
-            print("🔍 Creating cultural profile...")
-            
-            # FIXED: Use the correct method name that matches your dashboard
-            if self.qloo_service:
-                cultural_profile = await self.qloo_service.get_enhanced_cultural_insights(user_preferences)
-            else:
-                cultural_profile = None
-            
-            if not cultural_profile:
-                print("❌ Failed to create cultural profile")
-                return self._create_empty_analysis(timeframe)
-            
-            print(f"✅ Cultural profile created (confidence: {cultural_profile.confidence_score}%)")
-            
-            # Handle Gemini quota gracefully
-            predictions = []
-            if self.gemini_service:
-                try:
-                    print("🤖 Generating trend predictions with Gemini...")
-                    predictions = await self.gemini_service.analyze_cultural_trends(cultural_profile, timeframe)
-                except Exception as e:
-                    print(f"⚠️ Gemini quota exceeded, using enhanced fallback: {e}")
-                    predictions = self._create_enhanced_predictions(cultural_profile, timeframe)
-            else:
-                predictions = self._create_enhanced_predictions(cultural_profile, timeframe)
-            
-            # Enhance and rank predictions
-            enhanced_predictions = self._enhance_with_community_data(predictions, [])
-            final_predictions = self._score_and_rank_predictions(enhanced_predictions)
-            
-            print(f"✅ Generated {len(final_predictions)} trend predictions")
-            
-            return TrendAnalysis(
-                predictions=final_predictions,
-                cultural_profile=cultural_profile,
-                analysis_date=datetime.now(),
-                timeframe=timeframe,
-                total_predictions=len(final_predictions),
-                average_confidence=sum(p.confidence_score for p in final_predictions) / len(final_predictions) if final_predictions else 0
-            )
-            
-        except Exception as e:
-            print(f"❌ Error in trend analysis: {e}")
+        print("🔍 Creating cultural profile...")
+        cultural_profile = await self.qloo_service.create_cultural_profile(user_preferences)
+        
+        if not cultural_profile:
+            print("❌ Failed to create cultural profile")
             return self._create_empty_analysis(timeframe)
+        
+        print(f"✅ Cultural profile created (confidence: {cultural_profile.confidence_score}%)")
+        
+        print("🔍 Analyzing cultural communities...")
+        similar_profiles = await self.qloo_service.get_similar_profiles(cultural_profile.profile_id)
+        
+        print("🤖 Generating trend predictions with Gemini...")
+        predictions = await self.gemini_service.analyze_cultural_trends(cultural_profile, timeframe)
+        
+        enhanced_predictions = self._enhance_with_community_data(predictions, similar_profiles)
+        final_predictions = self._score_and_rank_predictions(enhanced_predictions)
+        
+        print(f"✅ Generated {len(final_predictions)} trend predictions")
+        
+        return TrendAnalysis(
+            predictions=final_predictions,
+            cultural_profile=cultural_profile,  # Include profile for brand kit generation
+            analysis_date=datetime.now(),
+            timeframe=timeframe,
+            total_predictions=len(final_predictions),
+            average_confidence=sum(p.confidence_score for p in final_predictions) / len(final_predictions) if final_predictions else 0
+        )
+
+
 
     async def generate_brand_identity(self, cultural_profile: CulturalProfile) -> BrandIdentityKit:
-        """Generate brand identity kit from cultural profile using Gemini"""
-        try:
-            prompt = create_brand_identity_prompt(cultural_profile)
-            print("🎨 Generating brand identity with enhanced cultural context...")
+            """Generate brand identity kit from cultural profile using Gemini"""
+            try:
+                prompt = create_brand_identity_prompt(cultural_profile)
+                print("🎨 Generating brand identity with enhanced cultural context...")
 
-            if self.gemini_service:
-                try:
-                    response_text = await self.gemini_service.analyze_cultural_trends_with_custom_prompt(cultural_profile, prompt)
-                    clean_text = response_text.strip()
+                response_text = await self.gemini_service.analyze_cultural_trends_with_custom_prompt(cultural_profile, prompt)
 
-                    # Extract JSON using regex
-                    json_match = re.search(r"\{.*\}", clean_text, re.DOTALL)
-                    if json_match:
-                        json_str = json_match.group(0)
-                        json_data = json.loads(json_str)
-                        brand_kit = BrandIdentityKit(**json_data)
-                        print(f"✅ Brand identity created: {brand_kit.brand_name}")
-                        return brand_kit
-                except Exception as e:
-                    print(f"⚠️ Gemini quota exceeded for brand generation: {e}")
+                clean_text = response_text.strip()
 
-            # Enhanced fallback based on cultural profile
-            print("🎨 Using enhanced fallback brand identity")
-            return self._create_fallback_brand_kit(cultural_profile)
+                # Extract JSON using regex (covers all edge cases)
+                json_match = re.search(r"\{.*\}", clean_text, re.DOTALL)
+                if not json_match:
+                    raise ValueError("No JSON found in Gemini response")
 
-        except Exception as e:
-            print(f"❌ Brand generation error: {e}")
-            return self._create_fallback_brand_kit(cultural_profile)
+                json_str = json_match.group(0)
 
-    def _create_enhanced_predictions(self, cultural_profile: CulturalProfile, timeframe: str) -> List[TrendPrediction]:
-        """Create enhanced predictions based on cultural profile"""
-        timeline_days = {"30d": 30, "90d": 90, "180d": 180}[timeframe]
-        
-        # Extract user preferences from cultural profile
-        connections = getattr(cultural_profile, 'cross_domain_connections', {})
-        segments = getattr(cultural_profile, 'cultural_segments', [])
-        
-        predictions = []
-        
-        # Jazz-specific prediction (based on your logs showing jazz preference)
-        if any('jazz' in str(item).lower() for item in connections.get('music', []) + segments):
-            predictions.append(TrendPrediction(
-                product_category="Music & Culture",
-                predicted_trend="AI-curated jazz fusion experiences",
-                confidence_score=88.0,
-                timeline_days=timeline_days - 15,
-                target_audience=["jazz enthusiasts", "cultural explorers"],
-                cultural_reasoning="Your jazz preference indicates appreciation for sophisticated, authentic cultural experiences.",
-                market_opportunity="Growing market for personalized jazz experiences leveraging AI curation."
-            ))
-        
-        # Add universal predictions
-        predictions.extend([
-            TrendPrediction(
-                product_category="Cultural Experiences",
-                predicted_trend="Hyperlocal cultural discovery platforms",
-                confidence_score=82.0,
-                timeline_days=timeline_days - 20,
-                target_audience=["cultural enthusiasts", "experience seekers"],
-                cultural_reasoning="Based on your cultural segments, you value authentic, community-driven experiences.",
-                market_opportunity="Emerging market for AI-powered local cultural recommendations."
-            ),
-            TrendPrediction(
-                product_category="Lifestyle",
-                predicted_trend="Sustainable artisan marketplace with cultural storytelling",
-                confidence_score=79.0,
-                timeline_days=timeline_days,
-                target_audience=["conscious consumers", "culture advocates"],
-                cultural_reasoning="Your profile suggests appreciation for authentic, meaningful products.",
-                market_opportunity="Growing demand for sustainable products with authentic cultural connections."
-            )
-        ])
-        
-        return predictions
+                # Parse the extracted JSON
+                json_data = json.loads(json_str)
+                brand_kit = BrandIdentityKit(**json_data)
+
+                print(f"✅ Brand identity created: {brand_kit.brand_name}")
+                return brand_kit
+
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON parsing error: {e}")
+                print(f"Raw response (start): {response_text[:300]}...")
+                return self._create_fallback_brand_kit(cultural_profile)
+
+            except Exception as e:
+                print(f"❌ Brand generation error: {e}")
+                return self._create_fallback_brand_kit(cultural_profile)
+    
+
 
     def _create_fallback_brand_kit(self, cultural_profile: CulturalProfile) -> BrandIdentityKit:
         """Create a fallback brand kit based on cultural segments"""
         segments = getattr(cultural_profile, 'cultural_segments', ['Creative Individual'])
-        connections = getattr(cultural_profile, 'cross_domain_connections', {})
-        
-        # Customize based on jazz preference (from your logs)
-        if any('jazz' in str(item).lower() for item in connections.get('music', []) + segments):
-            return BrandIdentityKit(
-                brand_name="Jazz Collective",
-                tagline="Authentic Rhythm, Modern Soul",
-                mission_statement="Bridging timeless jazz heritage with contemporary cultural expression through authentic storytelling and community connection.",
-                core_keywords=["authentic", "jazz", "cultural", "storytelling", "community"],
-                color_palette={"primary": "#2C3E50", "secondary": "#E67E22", "accent": "#F39C12", "neutral": "#95A5A6"},
-                social_media_bio="Jazz culture curator & authentic storyteller | Where tradition meets innovation 🎷"
-            )
-        
-        # Other segment-based fallbacks
         primary_segment = segments[0] if segments else 'Creative Individual'
         
+        # Customize based on primary segment
         if 'indie' in primary_segment.lower():
             return BrandIdentityKit(
                 brand_name="Indie Collective",
@@ -299,12 +226,11 @@ class TrendAnalyzer:
 
     def _create_empty_analysis(self, timeframe: str) -> TrendAnalysis:
         """Create empty analysis when cultural profile creation fails"""
-        # FIXED: Added missing cultural_profile parameter
         return TrendAnalysis(
-            predictions=[],
-            cultural_profile=None,  # ← This was missing
-            analysis_date=datetime.now(),
-            timeframe=timeframe,
-            total_predictions=0,
-            average_confidence=0
-        )
+    predictions=[],
+    cultural_profile=None,  # ← Missing parameter
+    analysis_date=datetime.now(),
+    timeframe=timeframe,
+    total_predictions=0,
+    average_confidence=0
+)
