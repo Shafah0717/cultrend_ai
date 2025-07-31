@@ -6,15 +6,18 @@ class RecommendationService:
     def __init__(self):
         self.products = PRODUCT_RECOMMENDATIONS
         self.experiences = EXPERIENCE_RECOMMENDATIONS
+        print(f"DEBUG - Loaded {len(self.products)} product categories")
+        print(f"DEBUG - Available categories: {list(self.products.keys())}")
 
     def get_personalized_recommendations(self, cultural_profile, brand_kit, recommendation_type="products", max_recommendations=6):
         """Get personalized recommendations based on cultural profile and brand kit"""
+        print("DEBUG - get_personalized_recommendations called")
+        
         try:
             recommendations = []
             
             # Extract user preferences from cultural profile
             preferences = self._extract_preferences_from_profile(cultural_profile)
-            
             print(f"DEBUG - Extracted preferences: {preferences}")
             
             # Get products based on preferences
@@ -38,15 +41,15 @@ class RecommendationService:
         if hasattr(cultural_profile, 'cultural_segments'):
             for segment in cultural_profile.cultural_segments:
                 segment_lower = segment.lower()
-                if 'jazz' in segment_lower:
+                if 'jazz' in segment_lower or 'music' in segment_lower:
                     preferences.add('jazz')
-                if 'sustain' in segment_lower:
+                if 'sustain' in segment_lower or 'eco' in segment_lower:
                     preferences.add('sustainability')
-                if 'creative' in segment_lower:
+                if 'creative' in segment_lower or 'art' in segment_lower:
                     preferences.add('creative')
-                if 'luxury' in segment_lower:
+                if 'luxury' in segment_lower or 'premium' in segment_lower:
                     preferences.add('luxury')
-                if 'local' in segment_lower:
+                if 'local' in segment_lower or 'community' in segment_lower:
                     preferences.add('local')
         
         # Extract from cross-domain connections
@@ -71,9 +74,9 @@ class RecommendationService:
                 if 'local' in lifestyle.lower():
                     preferences.add('local')
         
-        # Add fallback preferences if none found
+        # Add fallback preferences based on jazz detection (from your logs)
         if not preferences:
-            preferences = {'jazz', 'sustainability'}  # Default to jazz (from your logs)
+            preferences = {'jazz', 'sustainability'}  # Default based on your user input
             
         return list(preferences)
 
@@ -85,18 +88,29 @@ class RecommendationService:
         for pref in preferences:
             if pref in self.products:
                 matching_products.extend(self.products[pref])
+                print(f"DEBUG - Added {len(self.products[pref])} products for {pref}")
         
         # If no matches, add some default recommendations
         if not matching_products:
-            # Add jazz products as fallback (since user showed jazz preference)
+            print("DEBUG - No preference matches, adding default products")
+            # Add jazz products as primary fallback
             if 'jazz' in self.products:
                 matching_products.extend(self.products['jazz'])
+            # Add sustainability products as secondary fallback
             if 'sustainability' in self.products:
                 matching_products.extend(self.products['sustainability'][:2])
         
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_products = []
+        for product in matching_products:
+            if product['name'] not in seen:
+                seen.add(product['name'])
+                unique_products.append(product)
+        
         # Shuffle and limit results
-        random.shuffle(matching_products)
-        return matching_products[:max_recommendations]
+        random.shuffle(unique_products)
+        return unique_products[:max_recommendations]
 
     def _get_matching_experiences(self, preferences, max_recommendations):
         """Get experiences matching user preferences"""
