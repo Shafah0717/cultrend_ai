@@ -1,18 +1,28 @@
 import streamlit as st
 import os
+import random
+import asyncio
+import base64
+from datetime import datetime
+from models.trend_models import BrandIdentityKit, CulturalProfile, UserPreferences
+from services.explanation_service import ExplanationService
+from services.recommendation_service import RecommendationService
+from services.trend_analyzer import TrendAnalyzer
+from content.content_data import popular_anime, travel_areas, football_clubs
+
 st.set_page_config(
     page_title="Cultrend AI - Cultural Intelligence",
     page_icon="https://i.ibb.co/qYZWLGqH/Plugin-icon-1-1.png",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
 def get_api_keys():
-    """Get API keys - now that page config is set"""
+    """Get API keys from Streamlit secrets"""
     qloo_key = st.secrets.get("qloo", {}).get("api_key")
     gemini_key = st.secrets.get("gemini", {}).get("api_key")
     
     if qloo_key and gemini_key:
-        # st.success("✅ All API keys loaded successfully!")
         return qloo_key, gemini_key
     else:
         st.error("❌ API keys missing!")
@@ -20,50 +30,8 @@ def get_api_keys():
 
 # Get API keys
 qloo_key, gemini_key = get_api_keys()
-from datetime import datetime
 
-import random
-import asyncio
-import base64
-from models.trend_models import BrandIdentityKit, CulturalProfile  # Updated import
-from services.explanation_service import ExplanationService
-from services.recommendation_service import RecommendationService
-# Import your content data (make sure content_data.py is in the same directory)
-from content.content_data import popular_anime, travel_areas, football_clubs
-
-from services.trend_analyzer import TrendAnalyzer  # your actual analyzer
-from models.trend_models import UserPreferences    # adjust import as needed
-
-def render_header_with_logo():
-    try:
-        with open("cultrend_logo.svg", "r") as f:
-            svg_content = f.read()
-        
-        st.markdown(f"""
-        <div class="main-header" style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
-            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-                {svg_content}
-                <h1 style="margin-left: 15px; margin-bottom: 0; color: #333;">Cultrend AI</h1>
-            </div>
-            <p style="color: #666; font-size: 1.1rem; margin: 0;">Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.markdown("""
-        <div class="main-header" style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
-            <h1>Cultrend AI</h1>
-            <p>Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# st.set_page_config(
-#     page_title="Cultrend AI - Cultural Intelligence",
-#     page_icon="🎭",  # Use emoji instead of file for reliability
-#     layout="wide",
-#     initial_sidebar_state="collapsed"
-# )
-
-# --- UI Styles ---
+# CSS Styles
 st.markdown("""
 <style>
 .main-header { background: linear-gradient(90deg, #5a4e9e 0%, #7f5fc5 100%);
@@ -87,80 +55,36 @@ st.markdown("""
     border-radius: 20px; padding: 6px 18px; text-decoration: none; font-size: 1em; margin-top: 3px; margin-left: 12px; display: inline-block;
     box-shadow: 0 3px 8px rgba(133,109,209,0.4); transition: background 0.3s;}
 .mini-product-btn:hover { background: linear-gradient(90deg, #7f5fc5, #5c4dbc); box-shadow: 0 5px 15px rgba(133,109,209,0.7);}
-.recommend-card-row { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 14px; justify-content: flex-start;}
 .brand-kit-container { background-color: #ffffff; padding: 1.5rem; border-radius: 15px; border: 1px solid #ddd; margin-top: 1rem;}
-
-@media (max-width: 700px){
-    .recommend-card-row { flex-direction: column; gap: 12px;}
-    .mini-product-card { width: 100% !important; min-width:unset !important; margin-left:0 !important;}
-}
-  div.stButton > button:first-child {
-        background-color: #ffffff;
-        color: #333;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        padding: 0.2rem 1rem;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #f0f0f0;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-
-
+# Header
 st.markdown("""
-<div class="main-header" style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
-    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-        <h1 style="margin-bottom: 0; color: #fff; font-size: 2.5rem;">Cultrend AI</h1>
-    </div>
+<div class="main-header">
+    <h1 style="margin-bottom: 0; color: #fff; font-size: 2.5rem;">Cultrend AI</h1>
     <p style="color: #fff; font-size: 1.1rem; margin: 0;">Your cultural friend: discover trends, brands, and experiences tailored just for you.</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ----- Friendly opening, small talk logic -----
+# Friendly conversation data
 friendly_openers = [
     "Hey there!  How's your day going so far?",
     "Hi! It's nice to meet you. Have you done anything fun or interesting recently?",
     "Hello!  If you could spend your afternoon any way you liked, what would you do?",
     "Hey! I always like starting with a friendly chat—what's something that's made you smile lately?"
 ]
+
 smalltalk_questions = [
     "That sounds fun! By the way, do you gravitate more towards music, movies, books, or maybe something totally different?",
     "Love it. If you were to pick a favorite way to relax—music, games, travel, or anything—what would it be?",
     "Nice! Just out of curiosity, do you have a favorite artist, hobby, or trend lately?",
     "Beautiful! I always love hearing about what inspires people. Is there a genre, scene, or community you're drawn to these days?"
 ]
+
 interest_prompt = "I'd love to learn about your cultural interests! What are some things you care about like music, fashion, travel, gaming, or something else?"
 
-import os
-
-def get_api_keys():
-    """Get API keys from Streamlit secrets or environment variables"""
-    try:
-        # Try Streamlit secrets first (for deployment)
-        qloo_api_key = st.secrets.get("qloo", {}).get("api_key")
-        gemini_api_key = st.secrets.get("gemini", {}).get("api_key")
-    except:
-        qloo_api_key = None
-        gemini_api_key = None
-    
-    # Fall back to environment variables
-    if not qloo_api_key:
-        qloo_api_key = os.getenv("QLOO_API_KEY")
-    if not gemini_api_key:
-        gemini_api_key = os.getenv("GOOGLE_API_KEY")
-    
-    if not qloo_api_key or not gemini_api_key:
-        st.error("🔑 Missing API keys! Please check your secrets.toml or .env file")
-        st.info("Required: QLOO_API_KEY and GOOGLE_API_KEY")
-        st.stop()
-    
-    return qloo_api_key, gemini_api_key
-
-# Get API keys
-qloo_api_key, gemini_api_key = get_api_keys()
-# --- Session state ---
+# Session state initialization
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "conversation_stage" not in st.session_state:
@@ -171,19 +95,18 @@ if "analyzer" not in st.session_state:
     st.session_state.analyzer = TrendAnalyzer()
 if "recommendations_unlocked" not in st.session_state:
     st.session_state.recommendations_unlocked = False
-# ADDED: Brand kit session state variables
 if "last_cultural_profile" not in st.session_state:
     st.session_state.last_cultural_profile = None
 if "show_brand_kit_prompt" not in st.session_state:
     st.session_state.show_brand_kit_prompt = False
-
 if "recommendation_service" not in st.session_state:
     st.session_state.recommendation_service = RecommendationService()
-
-# Also add the explanation service to be safe
 if "explanation_service" not in st.session_state:
     st.session_state.explanation_service = ExplanationService()
+if "processing_input" not in st.session_state:
+    st.session_state.processing_input = False
 
+# Initialize with friendly opener
 if len(st.session_state.messages) == 0:
     st.session_state.messages.append({
         "role": "assistant",
@@ -191,54 +114,20 @@ if len(st.session_state.messages) == 0:
         "timestamp": datetime.now(),
         "type": "standard"
     })
-if st.sidebar.button("🔍 Debug Test Recommendations"):
-    print("=== DEBUG TEST ===")
-    if st.session_state.recommendation_service:
-        print("RecommendationService exists")
-        print("Available categories:", list(st.session_state.recommendation_service.products.keys()))
-        
-        # Test with mock profile
-        from models.trend_models import CulturalProfile
-        test_profile = CulturalProfile(
-            profile_id="test",
-            cultural_segments=["jazz enthusiasts", "cultural explorers"],
-            cross_domain_connections={
-                "music": ["jazz"],
-                "lifestyle": ["creative"]
-            },
-            behavioral_indicators={},
-            confidence_score=85.0
-        )
-        
-        test_recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
-            test_profile, None, "products", 3
-        )
-        print(f"Test recommendations: {len(test_recommendations) if test_recommendations else 0}")
-        if test_recommendations:
-            for rec in test_recommendations:
-                print(f"- {rec.get('name', 'Unknown')}")
-        
-        # Display results in the app too
-        st.sidebar.success(f"Found {len(test_recommendations) if test_recommendations else 0} test recommendations")
-        if test_recommendations:
-            for rec in test_recommendations:
-                st.sidebar.write(f"✅ {rec.get('name', 'Unknown')}")
-    else:
-        print("RecommendationService not found!")
-        st.sidebar.error("RecommendationService not found!")
 
+# Helper functions
 def get_cultrend_avatar_img():
-    with open("cultrend_avatar.png", "rb") as image_file:
-        encoded = base64.b64encode(image_file.read()).decode()
-    return f'<img src="data:image/png;base64,{encoded}" width="32" style="vertical-align:middle;margin-right:4px;">'
+    try:
+        with open("cultrend_avatar.png", "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode()
+        return f'<img src="data:image/png;base64,{encoded}" width="32" style="vertical-align:middle;margin-right:4px;">'
+    except FileNotFoundError:
+        return "(•‿•) Cultrend"
 
 def render_product_cards(items, content, timestamp):
+    st.markdown(f'<div class="chat-message assistant-message" style="margin-bottom:0.5rem;"><strong>{get_cultrend_avatar_img()}</strong> <small>({timestamp.strftime("%H:%M")})</small><br>{content}</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="chat-message assistant-message" style="margin-bottom:0.5rem;"><strong>(•‿•) Cultrend</strong> <small>({timestamp.strftime("%H:%M")})</small><br>{content}</div>', unsafe_allow_html=True)
-    
-    # We'll use columns for a cleaner layout
-    cols = st.columns(3)  # Three cards per row
-
+    cols = st.columns(3)
     for idx, item in enumerate(items):
         with cols[idx % 3]:
             st.markdown('<div class="explained-card">', unsafe_allow_html=True)
@@ -257,10 +146,8 @@ def render_product_cards(items, content, timestamp):
             st.link_button("🛒 Shop Now", item["link"], use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- ADDED: Function to render brand identity kit ---
 def render_brand_kit(brand_kit: BrandIdentityKit):
-    """Renders the BrandIdentityKit in a structured, visually appealing card"""
-    st.markdown("###  Your Personal Brand Identity Kit")
+    st.markdown("### 🎨 Your Personal Brand Identity Kit")
     st.markdown(f"#### {brand_kit.brand_name}")
     st.markdown(f"> *{brand_kit.tagline}*")
     
@@ -279,37 +166,64 @@ def render_brand_kit(brand_kit: BrandIdentityKit):
         with cols[i]:
             st.color_picker(f"{name.replace('_', ' ').title()}", value=color, key=f"color_{name}", disabled=True)
 
-# --- Content Detection Logic ---
 def detect_specific_content(user_message: str):
     msg = user_message.lower()
-
-    # Anime title
     for key in popular_anime:
         if key in msg:
             return ("anime", key)
-    # Travel destination (search by first word in "title")
     for area in travel_areas:
         first_word = area["title"].split(",")[0].lower()
         if first_word in msg:
             return ("travel", area["title"])
-    # Football club
     for key in football_clubs:
         if key in msg:
             return ("football", key)
     return (None, None)
 
-# --- Chat History Renderer ---
+def is_smalltalk(content: str) -> bool:
+    smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
+    return any(kw in content.lower() for kw in smalltalk_keywords)
+
+def extract_user_preferences(messages):
+    prefs_text = " ".join([msg["content"].lower() for msg in messages if msg["role"] == "user"])
+    
+    music_keywords = ["pop", "indie", "rock", "jazz", "classical", "electronic", "hip hop", "r&b", "folk", "country", "blues", "metal", "punk", "reggae", "soul", "funk", "disco", "house", "techno", "ambient"]
+    fashion_keywords = ["minimalist", "vintage", "streetwear", "sustainable", "luxury", "casual", "formal", "bohemian", "preppy", "gothic", "punk", "athletic", "trendy", "classic", "avant-garde"]
+    dining_keywords = ["local", "organic", "vegan", "vegetarian", "italian", "japanese", "chinese", "mexican", "indian", "thai", "french", "mediterranean", "artisanal", "craft", "farm-to-table", "street food", "fine dining"]
+    entertainment_keywords = ["gaming", "movies", "music", "books", "art", "theater", "comedy", "podcasts", "streaming", "concerts", "festivals", "museums", "galleries", "sports", "outdoor", "travel"]
+    lifestyle_keywords = ["gym","wellness", "fitness", "yoga", "meditation", "sustainability", "minimalism", "technology", "innovation", "entrepreneurship", "creativity", "community", "volunteering", "travel", "adventure", "learning"]
+    
+    music = {w for w in music_keywords if w in prefs_text}
+    fashion = {w for w in fashion_keywords if w in prefs_text}
+    dining = {w for w in dining_keywords if w in prefs_text}
+    entertainment = {w for w in entertainment_keywords if w in prefs_text}
+    lifestyle = {w for w in lifestyle_keywords if w in prefs_text}
+    
+    print(f"🔍 INPUT CHECK - Extracted preferences:")
+    print(f"   🎵 Music: {list(music)}")
+    print(f"   👔 Fashion: {list(fashion)}")
+    print(f"   🍽️ Dining: {list(dining)}")
+    print(f"   🎬 Entertainment: {list(entertainment)}")
+    print(f"   🏡 Lifestyle: {list(lifestyle)}")
+    
+    return UserPreferences(
+        music_genres=list(music),
+        fashion_styles=list(fashion),
+        dining_preferences=list(dining),
+        entertainment_types=list(entertainment),
+        lifestyle_choices=list(lifestyle)
+    )
+
+# Chat History Renderer
 for message in st.session_state.messages:
-    # Handle recommendation messages
     if message.get("type") == "recommendation":
         render_product_cards(message["items"], message["content"], message.get("timestamp"))
         continue
         
-    # ADDED: Handle brand kit messages
     if message.get("type") == "brand_kit":
         st.markdown(f"""
         <div class="chat-message assistant-message">
-            <strong>(•‿•) Cultrend</strong>
+            <strong>{get_cultrend_avatar_img()}</strong>
             <small>({message.get('timestamp').strftime('%H:%M') if message.get('timestamp') else ''})</small><br>
             {message['content']}
         </div>
@@ -317,13 +231,11 @@ for message in st.session_state.messages:
         render_brand_kit(message["brand_kit"])
         continue
         
-    # Handle standard messages
     role = message["role"]
     content = message["content"]
     timestamp = message.get("timestamp", datetime.now())
     msg_class = "user-message" if role == "user" else "assistant-message"
-    cultrend_avatar = get_cultrend_avatar_img()  # Or get_cultrend_avatar_img()
-    avatar = "👤" if role == "user" else cultrend_avatar
+    avatar = "👤" if role == "user" else get_cultrend_avatar_img()
     st.markdown(f"""
     <div class="chat-message {msg_class}">
         <strong>{avatar} {'You' if role == 'user' else 'Cultrend'}</strong> <small>({timestamp.strftime('%H:%M')})</small><br>
@@ -331,7 +243,7 @@ for message in st.session_state.messages:
     </div>
     """, unsafe_allow_html=True)
 
-# ADDED: Brand kit generation button after message rendering
+# Brand kit generation button
 if st.session_state.show_brand_kit_prompt:
     st.markdown("---")
     if st.button("✨ Generate My Brand DNA", use_container_width=True):
@@ -342,7 +254,6 @@ if st.session_state.show_brand_kit_prompt:
                     st.session_state.last_cultural_profile
                 ))
                 
-                # Add brand kit to chat history
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": "Here's your personalized Brand Identity Kit based on your cultural DNA:",
@@ -351,29 +262,32 @@ if st.session_state.show_brand_kit_prompt:
                     "timestamp": datetime.now()
                 })
                 st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": " Your brand identity is ready! What would you like to do next?<br><br>• Say recommendations to get personalized product suggestions<br>• Ask about specific topics like anime, travel, or football Clubs",
-                            "timestamp": datetime.now(),
-                            "type": "standard"
-             })
+                    "role": "assistant", 
+                    "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football clubs'**",
+                    "timestamp": datetime.now(),
+                    "type": "standard"
+                })
                 
             st.session_state.show_brand_kit_prompt = False
+            st.session_state.conversation_stage = "post-brand-generation"
             st.rerun()
         else:
             st.error("Couldn't find your cultural profile. Please try analyzing again.")
             st.session_state.show_brand_kit_prompt = False
 
+# MAIN CHAT INPUT SECTION
 col1, col2 = st.columns([6, 1])
 with col1:
     user_input = st.text_input("Your message:", "",
-        key=f"chat_input_{len(st.session_state.messages)}",
-        
+        key="main_chat_input",  # Fixed: stable key
         label_visibility="collapsed"
     )
 with col2:
     send_btn = st.button("✔️ Send")
-if "processing_input" not in st.session_state:
-    st.session_state.processing_input = False
+
+# SINGLE CONSOLIDATED INPUT PROCESSING BLOCK
+if user_input and send_btn and not st.session_state.processing_input:
+    st.session_state.processing_input = True
     
     # Add user message
     st.session_state.messages.append({
@@ -386,7 +300,7 @@ if "processing_input" not in st.session_state:
     print(f"🔍 DEBUG - User input: '{user_input}'")
     print(f"🔍 DEBUG - Current conversation stage: {st.session_state.conversation_stage}")
     
-    # Check for recommendation keywords
+    # 1. RECOMMENDATION HANDLING (HIGHEST PRIORITY)
     is_recommendation_request = any(keyword in user_input.lower() for keyword in ["recommend", "recommendations", "suggestion", "products", "shopping"])
     
     if is_recommendation_request:
@@ -461,359 +375,210 @@ if "processing_input" not in st.session_state:
                 "timestamp": datetime.now(),
                 "type": "standard"
             })
-    else:
-        # Handle your other conversation logic here
-        print("🔍 DEBUG - Not a recommendation request, continuing with other logic...")
-
-def is_smalltalk(content: str) -> bool:
-    smalltalk_keywords = ["day", "hello", "hi", "fine", "thanks", "good", "fun", "busy", "cool", "morning", "evening", "night", "weather", "smile", "chill"]
-    return any(kw in content.lower() for kw in smalltalk_keywords)
-
-def extract_user_preferences(messages):
-    """Enhanced preference extraction with broader keyword coverage"""
-    prefs_text = " ".join([msg["content"].lower() for msg in messages if msg["role"] == "user"])
     
-    # Expanded keyword sets
-    music_keywords = ["pop", "indie", "rock", "jazz", "classical", "electronic", "hip hop", "r&b", "folk", "country", "blues", "metal", "punk", "reggae", "soul", "funk", "disco", "house", "techno", "ambient"]
-    fashion_keywords = ["minimalist", "vintage", "streetwear", "sustainable", "luxury", "casual", "formal", "bohemian", "preppy", "gothic", "punk", "athletic", "trendy", "classic", "avant-garde"]
-    dining_keywords = ["local", "organic", "vegan", "vegetarian", "italian", "japanese", "chinese", "mexican", "indian", "thai", "french", "mediterranean", "artisanal", "craft", "farm-to-table", "street food", "fine dining"]
-    entertainment_keywords = ["gaming", "movies", "music", "books", "art", "theater", "comedy", "podcasts", "streaming", "concerts", "festivals", "museums", "galleries", "sports", "outdoor", "travel"]
-    lifestyle_keywords = ["gym","wellness", "fitness", "yoga", "meditation", "sustainability", "minimalism", "technology", "innovation", "entrepreneurship", "creativity", "community", "volunteering", "travel", "adventure", "learning"]
-    
-    # Extract matches
-    music = {w for w in music_keywords if w in prefs_text}
-    fashion = {w for w in fashion_keywords if w in prefs_text}
-    dining = {w for w in dining_keywords if w in prefs_text}
-    entertainment = {w for w in entertainment_keywords if w in prefs_text}
-    lifestyle = {w for w in lifestyle_keywords if w in prefs_text}
-    # 🔍 ADD INPUT CHECK HERE
-    print(f"🔍 INPUT CHECK - Extracted preferences:")
-    print(f"   🎵 Music: {list(music)}")
-    print(f"   👔 Fashion: {list(fashion)}")
-    print(f"   🍽️ Dining: {list(dining)}")
-    print(f"   🎬 Entertainment: {list(entertainment)}")
-    print(f"   🏡 Lifestyle: {list(lifestyle)}")
-    
-    
-    return UserPreferences(
-        music_genres=list(music),
-        fashion_styles=list(fashion),
-        dining_preferences=list(dining),
-        entertainment_types=list(entertainment),
-        lifestyle_choices=list(lifestyle)
-    )
+    # 2. BRAND KIT REQUEST HANDLING
+    elif any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
+        if st.session_state.last_cultural_profile:
+            with st.spinner("Creating your personalized brand identity..."):
+                analyzer = st.session_state.analyzer
+                try:
+                    brand_kit = asyncio.run(analyzer.generate_brand_identity(st.session_state.last_cultural_profile))
+                    
+                    brand_message = f"""
+🎨 **{brand_kit.brand_name}**
+*{brand_kit.tagline}*
 
+**Mission:** {brand_kit.mission_statement}
 
-# --- Main Chat Logic with brand kit integration ---
-if user_input and send_btn:
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_input,
-        "timestamp": datetime.now(),
-        "type": "standard"
-    })
+**Keywords:** {', '.join(brand_kit.core_keywords)}
 
-    # Detect and respond to anime/travel/football queries first
-    category, key = detect_specific_content(user_input)
-    if category == "anime":
-        d = popular_anime[key]
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": f"<b>{d['title']}</b><br>{d['desc']}",
-            "type": "recommendation",
-            "items": d["products"],
-            "timestamp": datetime.now()
-        })
-        st.rerun()
-    elif category == "travel":
-        d = next(area for area in travel_areas if area["title"] == key)
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": f"<b>{d['title']}</b><br>{d['desc']}<br><a href='{d['flight_link']}' target='_blank'>Find Flights</a>",
-            "type": "standard",
-            "timestamp": datetime.now()
-        })
-        st.rerun()
-    elif category == "football":
-        d = football_clubs[key]
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": f"<b>{d['title']}</b><br>{d['desc']}",
-            "type": "recommendation",
-            "items": d["products"],
-            "timestamp": datetime.now()
-        })
-        st.rerun()
-    else:
-        # ---- Friend talk and profile logic ----
-        if st.session_state.conversation_stage == "friend_talk":
-            st.session_state.smalltalk_turns += 1
-            # Continue small talk
-            if is_smalltalk(user_input) and st.session_state.smalltalk_turns < 2:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": random.choice(smalltalk_questions),
-                    "timestamp": datetime.now(),
-                    "type": "standard"
-                })
-            else:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": interest_prompt,
-                    "timestamp": datetime.now(),
-                    "type": "standard"
-                })
-                st.session_state.conversation_stage = "collecting"
-            st.rerun()
+**Colors:**
+• Primary: {brand_kit.color_palette['primary']}
+• Secondary: {brand_kit.color_palette['secondary']}
+• Accent: {brand_kit.color_palette['accent']}
 
-        elif st.session_state.conversation_stage == "collecting":
-            # Natural interest collection for 2+ interactions, then analyze
-            history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
-            
-            # Trigger analysis with "analyze" keyword or after 3 interactions
-            if "analyze" in user_input.lower() or history_len >= 3:
-                prefs = extract_user_preferences(st.session_state.messages)
-                
-                # Initialize profile as None
-                profile = None
-                
-                with st.spinner("Analyzing your cultural DNA..."):
-                    analyzer = st.session_state.analyzer
-                    try:
-                        
-                        analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
-                        
-                        
-                        if hasattr(analysis, 'cultural_profile') and analysis.cultural_profile:
-                            profile = analysis.cultural_profile
-                        else:
-                            
-                            profile = analysis
-                            
-                    except Exception as e:
-                        print(f"Error during analysis: {e}")
-                    
+**Social Bio:** {brand_kit.social_media_bio}
 
-                # --- Enhanced profile validation ---
-                valid_profile = False
-                segments = []
-                
-                if profile:
+Now you can ask for personalized product recommendations that match your brand!
+"""
                     
-                    if hasattr(profile, 'cultural_segments') and profile.cultural_segments:
-                        segments = profile.cultural_segments
-                        valid_profile = True
-                    elif hasattr(profile, 'enhanced_cultural_segments') and profile.enhanced_cultural_segments:
-                        segments = profile.enhanced_cultural_segments
-                        valid_profile = True
-                    elif hasattr(profile, 'segments') and profile.segments:
-                        segments = profile.segments
-                        valid_profile = True
-                
-                if valid_profile:
-                    st.session_state.last_cultural_profile = profile
-                   
-                    
-                    
-                    qloo_service = st.session_state.analyzer.qloo_service
-                    api_status = asyncio.run(qloo_service._test_api_connection())
-                    st.write(f"**API Connection:** {'✅ Working' if api_status else '❌ Failed'}")
-                    
-                   
-                    connections = profile.cross_domain_connections
-                    data_sources = connections.get('data_sources', [])
-                    st.write(f"**Data Sources Used:** {data_sources}")
-                    
-                  
-                    st.write(f"**Brand Entities:** {len(connections.get('brands', []))}")
-                    st.write(f"**Artist Entities:** {len(connections.get('artists', []))}")
-                    st.write(f"**Cultural Segments:** {profile.cultural_segments}")
-                    
-              
-                    metrics = qloo_service.get_performance_metrics()
-                    st.write(f"**Service Metrics:** {metrics}")
-                    
-                    resp_lines = []
-                    resp_lines.append("Here's what I've learned about your trend vibe!\n")
-                    resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
-                    resp_lines.append(f"Timeframe: {getattr(analysis, 'timeframe', '90d')}")
-                    resp_lines.append("")
-                    resp_lines.append("Top Trends")
-                    resp_lines.append("")
-                    
-                    for i, pred in enumerate(analysis.predictions, 1):
-                        resp_lines.append(f"{i}. {pred.predicted_trend}")
-                        resp_lines.append(f"   - Category: {pred.product_category}")
-                        resp_lines.append(f"   - Confidence: {pred.confidence_score:.0f}%")
-                        resp_lines.append(f"   - Timeline: {pred.timeline_days:.0f} days")
-                        resp_lines.append(f"   - Target Audience: {', '.join(pred.target_audience)}")
-                        reason = getattr(pred, 'cultural_reasoning', '')
-                        if reason:
-                            resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
-                        resp_lines.append("")
-                    
-                    resp_lines.append(f"**Your Cultural Segments:** {', '.join(segments)}")
-                    
-                    # Add BRAND KIT PROMPT
-                    resp_lines.append("Would you like some recommendations for products or experiences that match your vibe?")
-                    
-                    
-                    resp = "\n".join(resp_lines)
                     st.session_state.messages.append({
                         "role": "assistant",
-                        "content": resp,
+                        "content": brand_message,
+                        "timestamp": datetime.now(),
+                        "type": "brand_kit",
+                        "brand_kit": brand_kit
+                    })
+                    
+                    st.session_state.conversation_stage = "post-brand-generation"
+                    
+                except Exception as e:
+                    print(f"Error generating brand kit: {e}")
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "I had trouble generating your brand kit. Please try again!",
                         "timestamp": datetime.now(),
                         "type": "standard"
                     })
-                    
-                    # SHOW BRAND KIT BUTTON PROMPT
-                    st.session_state.show_brand_kit_prompt = True
-                    st.session_state.conversation_stage = "post-analysis"
-                    st.rerun()
-                    
+        else:
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": "Please complete your cultural analysis first before generating a brand kit!",
+                "timestamp": datetime.now(),
+                "type": "standard"
+            })
+    
+    # 3. SPECIFIC CONTENT DETECTION (anime, travel, football)
+    else:
+        category, key = detect_specific_content(user_input)
+        if category == "anime":
+            d = popular_anime[key]
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"<b>{d['title']}</b><br>{d['desc']}",
+                "type": "recommendation",
+                "items": d["products"],
+                "timestamp": datetime.now()
+            })
+        elif category == "travel":
+            d = next(area for area in travel_areas if area["title"] == key)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"<b>{d['title']}</b><br>{d['desc']}<br><a href='{d['flight_link']}' target='_blank'>Find Flights</a>",
+                "type": "standard",
+                "timestamp": datetime.now()
+            })
+        elif category == "football":
+            d = football_clubs[key]
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"<b>{d['title']}</b><br>{d['desc']}",
+                "type": "recommendation",
+                "items": d["products"],
+                "timestamp": datetime.now()
+            })
+        else:
+            # 4. CONVERSATION STAGE LOGIC
+            if st.session_state.conversation_stage == "friend_talk":
+                st.session_state.smalltalk_turns += 1
+                if is_smalltalk(user_input) and st.session_state.smalltalk_turns < 2:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": random.choice(smalltalk_questions),
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
                 else:
-                    # If profile creation failed, ask for more info
                     st.session_state.messages.append({
                         "role": "assistant",
-                        "content": "I had a little trouble building a full cultural profile from those preferences. Could you tell me more about your favorite music, fashion styles, or hobbies? The more details, the better!",
+                        "content": interest_prompt,
                         "timestamp": datetime.now(),
                         "type": "standard"
                     })
-                    # DEBUG: Print error details to console
-                    print("⚠️ Cultural profile creation failed despite trend prediction")
-                    print(f"Profile object exists: {profile is not None}")
-                    if profile:
-                        print(f"Profile attributes: {dir(profile)}")
-                    # Keep stage as "collecting" to allow more input
-                    st.rerun()
+                    st.session_state.conversation_stage = "collecting"
+            
+            elif st.session_state.conversation_stage == "collecting":
+                history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
+                
+                if "analyze" in user_input.lower() or history_len >= 3:
+                    prefs = extract_user_preferences(st.session_state.messages)
                     
-            else:
-                # Continue collecting preferences
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": random.choice([
-                        "I love your energy! Shall we keep exploring your interests? Share more or type 'analyze' if you want me to analyze your profile."
-                    ]),
-                    "timestamp": datetime.now(),
-                    "type": "standard"
-                })
-                st.rerun()
-
-        elif st.session_state.conversation_stage == "post-analysis":
-
-    # Check for brand kit request first
-            if any(keyword in user_input.lower() for keyword in ["brand", "kit", "identity"]):
-                if st.session_state.last_cultural_profile:
-                    with st.spinner("Crafting your personal brand identity..."):
+                    with st.spinner("Analyzing your cultural DNA..."):
                         analyzer = st.session_state.analyzer
-                        brand_kit = asyncio.run(analyzer.generate_brand_identity(
-                            st.session_state.last_cultural_profile
-                        ))
+                        try:
+                            analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
+                            
+                            if hasattr(analysis, 'cultural_profile') and analysis.cultural_profile:
+                                profile = analysis.cultural_profile
+                            else:
+                                profile = analysis
+                                
+                        except Exception as e:
+                            print(f"Error during analysis: {e}")
+                            profile = None
+
+                    valid_profile = False
+                    segments = []
+                    
+                    if profile:
+                        if hasattr(profile, 'cultural_segments') and profile.cultural_segments:
+                            segments = profile.cultural_segments
+                            valid_profile = True
+                        elif hasattr(profile, 'enhanced_cultural_segments') and profile.enhanced_cultural_segments:
+                            segments = profile.enhanced_cultural_segments
+                            valid_profile = True
+                        elif hasattr(profile, 'segments') and profile.segments:
+                            segments = profile.segments
+                            valid_profile = True
+                    
+                    if valid_profile:
+                        st.session_state.last_cultural_profile = profile
                         
-                        # Add brand kit message
+                        resp_lines = []
+                        resp_lines.append("Here's what I've learned about your trend vibe!\n")
+                        resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
+                        resp_lines.append(f"Timeframe: {getattr(analysis, 'timeframe', '90d')}")
+                        resp_lines.append("")
+                        resp_lines.append("Top Trends")
+                        resp_lines.append("")
+                        
+                        for i, pred in enumerate(analysis.predictions, 1):
+                            resp_lines.append(f"{i}. {pred.predicted_trend}")
+                            resp_lines.append(f"   - Category: {pred.product_category}")
+                            resp_lines.append(f"   - Confidence: {pred.confidence_score:.0f}%")
+                            resp_lines.append(f"   - Timeline: {pred.timeline_days:.0f} days")
+                            resp_lines.append(f"   - Target Audience: {', '.join(pred.target_audience)}")
+                            reason = getattr(pred, 'cultural_reasoning', '')
+                            if reason:
+                                resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
+                            resp_lines.append("")
+                        
+                        resp_lines.append(f"**Your Cultural Segments:** {', '.join(segments)}")
+                        resp_lines.append("Would you like some recommendations for products or experiences that match your vibe?")
+                        
+                        resp = "\n".join(resp_lines)
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": "Here's your personalized Brand Identity Kit based on your cultural DNA:",
-                            "type": "brand_kit",
-                            "brand_kit": brand_kit,
-                            "timestamp": datetime.now()
-                        })
-                        
-                        # Add follow-up message with next steps
-                        st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": "🎉 Your brand identity is ready! What would you like to do next?<br><br>• Say **'recommendations'** to get personalized product suggestions<br>• Ask about specific topics like **'anime'**, **'travel'**, or **'football Clubs'**<br>• Tell me about other interests to explore",
+                            "content": resp,
                             "timestamp": datetime.now(),
                             "type": "standard"
                         })
                         
-                        # Update conversation stage to post-brand-generation
-                        st.session_state.conversation_stage = "post-brand-generation"
-                        st.session_state.show_brand_kit_prompt = False
-                        st.rerun()
-                else:
-                    # Handle missing cultural profile
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Sorry, I couldn't find your cultural profile. Please try analyzing again.",
-                        "timestamp": datetime.now(),
-                        "type": "standard"
-                    })
-                    st.rerun()
-
-        elif st.session_state.conversation_stage == "post-brand-generation":
-    # Handle recommendations request
-            if any(keyword in user_input.lower() for keyword in ["recommend", "recommendations", "suggestion", "products"]):
-                print("🔍 DEBUG - Recommendation request detected")
-                
-                if st.session_state.last_cultural_profile:
-                    # Search for existing brand kit
-                    brand_kit = None
-                    for message in reversed(st.session_state.messages):
-                        if message.get("type") == "brand_kit":
-                            brand_kit = message.get("brand_kit")
-                            break
-                    
-                    print(f"🔍 DEBUG - Brand kit found: {brand_kit is not None}")
-                    
-                    if brand_kit:
-                        with st.spinner("Finding personalized recommendations..."):
-                            print("🔍 DEBUG - About to call recommendation service")
-                            
-                            recommendations = st.session_state.recommendation_service.get_personalized_recommendations(
-                                st.session_state.last_cultural_profile, 
-                                brand_kit,
-                                recommendation_type="products",
-                                max_recommendations=6
-                            )
-                            
-                            print(f"🔍 DEBUG - Recommendations returned: {len(recommendations) if recommendations else 0}")
-                            
-                            if recommendations and len(recommendations) > 0:
-                                # Build product cards
-                                product_cards = []
-                                for recommendation in recommendations:
-                                    explanation = st.session_state.explanation_service.get_recommendation_explanation(
-                                        recommendation, 
-                                        st.session_state.last_cultural_profile, 
-                                        brand_kit
-                                    )
-                                    product_cards.append({
-                                        "name": recommendation["name"],
-                                        "image": recommendation["image"], 
-                                        "link": recommendation["link"],
-                                        "price": recommendation.get("price", ""),
-                                        "description": recommendation.get("description", ""),
-                                        "explanation": explanation
-                                    })
-
-                                # Get summary
-                                summary = st.session_state.recommendation_service.get_recommendation_summary(recommendations)
-                                
-                                # Add recommendation message
-                                st.session_state.messages.append({
-                                    "role": "assistant",
-                                    "content": f"<b>🛍️ Personalized Recommendations</b><br>{summary}",
-                                    "type": "recommendation",
-                                    "items": product_cards,
-                                    "timestamp": datetime.now()
-                                })
-                                
-                                print(f"✅ DEBUG - Added {len(product_cards)} product cards to messages")
-                            else:
-                                st.session_state.messages.append({
-                                    "role": "assistant",
-                                    "content": "I couldn't find specific recommendations right now. Please try again!",
-                                    "timestamp": datetime.now(),
-                                    "type": "standard"
-                                })
-                        
-                        st.rerun()
+                        st.session_state.show_brand_kit_prompt = True
+                        st.session_state.conversation_stage = "post-analysis"
                     else:
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": "Please generate your brand identity first!",
+                            "content": "I had a little trouble building a full cultural profile from those preferences. Could you tell me more about your favorite music, fashion styles, or hobbies? The more details, the better!",
                             "timestamp": datetime.now(),
                             "type": "standard"
                         })
-                        st.rerun()
+                else:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": random.choice([
+                            "I love your energy! Shall we keep exploring your interests? Share more or type 'analyze' if you want me to analyze your profile."
+                        ]),
+                        "timestamp": datetime.now(),
+                        "type": "standard"
+                    })
+            
+            elif st.session_state.conversation_stage == "post-analysis":
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": "Ready to create your personalized brand identity? Type 'brand kit' to get started!",
+                    "timestamp": datetime.now(),
+                    "type": "standard"
+                })
+            
+            elif st.session_state.conversation_stage == "post-brand-generation":
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": "Your brand identity is ready! Type 'recommendations' to see personalized products that match your cultural DNA and brand identity!",
+                    "timestamp": datetime.now(),
+                    "type": "standard"
+                })
+    
+    # Reset processing flag and trigger rerun
+    st.session_state.processing_input = False
+    st.rerun()
