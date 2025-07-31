@@ -11,12 +11,7 @@ class GeminiService:
     """Service to interact with Google Gemini for trend analysis with safety handling"""
     
     def __init__(self):
-        # Configure Gemini
-        genai.configure(api_key=settings.gemini_api_key)
-        # Use gemini-1.5-flash for better safety compliance
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
-        
-        # Finish reason mappings
+    # Finish reason mappings
         self.finish_reasons = {
             0: "FINISH_REASON_UNSPECIFIED",
             1: "STOP",  # Natural completion - success
@@ -24,18 +19,20 @@ class GeminiService:
             3: "RECITATION",  # Blocked for copyright
             4: "OTHER"  # Other reason
         }
+
         try:
             api_key = self._get_api_key()
             if not api_key:
                 print("❌ No API key found")
                 self.model = None
                 return
-            
-            # Test the key immediately
+
+            # Configure Gemini only if API key is valid
+            import google.generativeai as genai
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            # Quick connection test
+
+            # Test Gemini connection immediately
             test_response = self.model.generate_content(
                 "Hello",
                 generation_config=genai.types.GenerationConfig(
@@ -44,34 +41,11 @@ class GeminiService:
                 )
             )
             print("✅ Gemini API key verified successfully")
-            
+
         except Exception as e:
             print(f"❌ Gemini API key verification failed: {e}")
             self.model = None
-    
-    def _get_api_key(self):
-        """Enhanced API key retrieval with logging"""
-        # Try Streamlit secrets
-        try:
-            key = st.secrets["gemini"]["api_key"]
-            if key and len(key) > 20:  # Basic validation
-                print(f"✅ Found API key in Streamlit secrets (length: {len(key)})")
-                return key
-            else:
-                print("⚠️ API key in secrets appears invalid")
-        except Exception as e:
-            print(f"⚠️ Could not access Streamlit secrets: {e}")
         
-        # Try environment variables
-        for env_var in ["GOOGLE_API_KEY", "GEMINI_API_KEY"]:
-            key = os.getenv(env_var)
-            if key:
-                print(f"✅ Found API key in {env_var}")
-                return key
-        
-        print("❌ No API key found in any location")
-        return None
-    
     async def analyze_cultural_trends(self, cultural_profile: CulturalProfile, timeframe: str = "90d") -> List[TrendPrediction]:
         """
         Analyze cultural profile and predict trends using Gemini with safety handling
