@@ -324,31 +324,29 @@ Please provide your market analysis in the specified JSON format:"""
     
     def _parse_real_gemini_response(self, response_text: str, timeframe: str) -> List[TrendPrediction]:
         """Parse actual Gemini response into TrendPrediction objects with robust error handling"""
-        
+
         try:
             print(f"🔍 Parsing Gemini response...")
             print(f"📄 Response preview: {response_text[:150]}...")
-            
-            # Clean response text
+
             cleaned = response_text.strip()
-            
+
             # Remove markdown formatting if present
-            if cleaned.startswith("```
+            if cleaned.startswith("```"):
                 lines = cleaned.split('\n')
                 cleaned = '\n'.join(lines[1:-1])
-            
+
             # Find JSON boundaries
             start_idx = cleaned.find('{')
             end_idx = cleaned.rfind('}') + 1
-            
+
             if start_idx != -1 and end_idx != 0:
                 cleaned = cleaned[start_idx:end_idx]
                 print(f"🧹 Extracted JSON: {len(cleaned)} characters")
             else:
                 print("❌ Could not find JSON boundaries in response")
                 return []
-            
-            # Parse JSON
+
             try:
                 data = json.loads(cleaned)
                 print("✅ JSON parsed successfully")
@@ -356,27 +354,26 @@ Please provide your market analysis in the specified JSON format:"""
                 print(f"❌ JSON parsing failed: {e}")
                 print(f"🔍 Problematic JSON: {cleaned[:300]}...")
                 return []
-            
-            # Process predictions
+
             predictions = []
             predictions_data = data.get("predictions", [])
-            
             print(f"📊 Found {len(predictions_data)} predictions in response")
-            
+
             for i, pred_data in enumerate(predictions_data, 1):
                 try:
                     print(f"🔄 Processing prediction {i}...")
-                    
-                    # Validate required fields
-                    required_fields = ["product_category", "predicted_trend", "confidence_score", 
-                                     "timeline_days", "target_audience", "cultural_reasoning", "market_opportunity"]
-                    
+
+                    required_fields = [
+                        "product_category", "predicted_trend", "confidence_score", 
+                        "timeline_days", "target_audience", "cultural_reasoning", 
+                        "market_opportunity"
+                    ]
+
                     for field in required_fields:
                         if field not in pred_data:
                             print(f"⚠️ Missing field '{field}' in prediction {i}")
                             pred_data[field] = self._get_default_value(field)
-                    
-                    # Create prediction object
+
                     prediction = TrendPrediction(
                         product_category=str(pred_data.get("product_category", "Consumer Products")),
                         predicted_trend=str(pred_data.get("predicted_trend", "Emerging trend")),
@@ -386,17 +383,17 @@ Please provide your market analysis in the specified JSON format:"""
                         cultural_reasoning=str(pred_data.get("cultural_reasoning", "Based on market analysis")),
                         market_opportunity=str(pred_data.get("market_opportunity", "Market opportunity identified"))
                     )
-                    
+
                     predictions.append(prediction)
                     print(f"✅ Prediction {i} processed: {prediction.predicted_trend[:50]}...")
-                    
+
                 except Exception as e:
                     print(f"⚠️ Error processing prediction {i}: {e}")
                     continue
-            
+
             print(f"🎯 Successfully processed {len(predictions)} predictions from Gemini")
             return predictions
-                
+
         except Exception as e:
             print(f"❌ Error parsing Gemini response: {e}")
             return []
