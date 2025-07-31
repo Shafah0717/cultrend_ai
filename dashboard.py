@@ -104,6 +104,8 @@ if "recommendation_service" not in st.session_state:
     st.session_state.recommendation_service = RecommendationService()
 if "explanation_service" not in st.session_state:
     st.session_state.explanation_service = ExplanationService()
+if "input_key_counter" not in st.session_state:
+    st.session_state.input_key_counter = 0
 
 # CRITICAL: Loop prevention variables
 if "processing_input" not in st.session_state:
@@ -112,10 +114,7 @@ if "last_processed_input" not in st.session_state:
     st.session_state.last_processed_input = ""
 if "execution_count" not in st.session_state:
     st.session_state.execution_count = 0
-if "current_input" not in st.session_state:
-    st.session_state.current_input = ""
-if "clear_input" not in st.session_state:
-    st.session_state.clear_input = False
+
 # Initialize with friendly opener only once
 if len(st.session_state.messages) == 0:
     st.session_state.messages.append({
