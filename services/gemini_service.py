@@ -11,7 +11,12 @@ class GeminiService:
     """Service to interact with Google Gemini for trend analysis with safety handling"""
     
     def __init__(self):
-    # Finish reason mappings
+        # Configure Gemini
+        genai.configure(api_key=settings.gemini_api_key)
+        # Use gemini-1.5-flash for better safety compliance
+        self.model = genai.GenerativeModel('gemini-1.0-flash')
+        
+        # Finish reason mappings
         self.finish_reasons = {
             0: "FINISH_REASON_UNSPECIFIED",
             1: "STOP",  # Natural completion - success
@@ -19,33 +24,8 @@ class GeminiService:
             3: "RECITATION",  # Blocked for copyright
             4: "OTHER"  # Other reason
         }
-
-        try:
-            api_key = self._get_api_key()
-            if not api_key:
-                print("❌ No API key found")
-                self.model = None
-                return
-
-            # Configure Gemini only if API key is valid
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
-
-            # Test Gemini connection immediately
-            test_response = self.model.generate_content(
-                "Hello",
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,
-                    max_output_tokens=10,
-                )
-            )
-            print("✅ Gemini API key verified successfully")
-
-        except Exception as e:
-            print(f"❌ Gemini API key verification failed: {e}")
-            self.model = None
         
+    
     async def analyze_cultural_trends(self, cultural_profile: CulturalProfile, timeframe: str = "90d") -> List[TrendPrediction]:
         """
         Analyze cultural profile and predict trends using Gemini with safety handling
