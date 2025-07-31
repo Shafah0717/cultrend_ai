@@ -104,10 +104,8 @@ if "recommendation_service" not in st.session_state:
     st.session_state.recommendation_service = RecommendationService()
 if "explanation_service" not in st.session_state:
     st.session_state.explanation_service = ExplanationService()
-if "current_input" not in st.session_state:
-    st.session_state.current_input = ""
-if "clear_input" not in st.session_state:
-    st.session_state.clear_input = False
+if "input_counter" not in st.session_state:
+    st.session_state.input_counter = 0
 
 # CRITICAL: Loop prevention variables
 if "processing_input" not in st.session_state:
@@ -274,15 +272,11 @@ if st.session_state.show_brand_kit_prompt:
 # BULLETPROOF CHAT INPUT - ZERO LOOP GUARANTEE
 col1, col2 = st.columns([6, 1])
 with col1:
-    input_value = "" if st.session_state.clear_input else st.session_state.get("current_input", "")
-    
-    user_input = st.text_input("Your message:", 
-        value=input_value,
-        key="main_chat_input",
+    user_input = st.text_input("Your message:", "",
+        key=f"chat_input_{st.session_state.input_counter}",  # Dynamic key forces new widget
         label_visibility="collapsed",
         placeholder="Type your message here..."
     )
-    
     # Update session state with current input
     st.session_state.current_input = user_input
 with col2:
@@ -479,8 +473,7 @@ if (user_input and send_btn and
     
     finally:
         # Always unlock processing
-        st.session_state.clear_input = True
-        st.session_state.current_input = ""
+        st.session_state.input_counter += 1 
         st.session_state.processing_input = False
         print(f"🔄 Triggering rerun after execution #{st.session_state.execution_count}")
         st.rerun()
