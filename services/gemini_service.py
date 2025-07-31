@@ -14,7 +14,7 @@ class GeminiService:
         # Configure Gemini
         genai.configure(api_key=settings.gemini_api_key)
         # Use gemini-1.5-flash for better safety compliance
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
         
         # Finish reason mappings
         self.finish_reasons = {
