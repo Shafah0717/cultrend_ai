@@ -52,12 +52,6 @@ st.markdown("""
     display: flex; align-items: center; padding: 10px 12px; margin-bottom: 10px;
     width: 360px; max-width: 100%; border: 1px solid #ccc4f6; transition: box-shadow 0.25s, transform 0.25s; cursor: pointer;}
 .mini-product-card:hover { box-shadow: 0 12px 28px rgba(101,78,190,0.3); transform: translateY(-4px);}
-.mini-product-img { border-radius: 8px; width: 60px; height: 60px; object-fit: cover; box-shadow: 0 2px 6px rgba(74,55,157,0.3);}
-.mini-product-txt {margin-left: 16px; flex: 1; color: #4b3f85; font-weight: 600;}
-.mini-product-btn { background: linear-gradient(90deg, #5c4dbc, #7f5fc5); color: #fff; font-weight: 700;
-    border-radius: 20px; padding: 6px 18px; text-decoration: none; font-size: 1em; margin-top: 3px; margin-left: 12px; display: inline-block;
-    box-shadow: 0 3px 8px rgba(133,109,209,0.4); transition: background 0.3s;}
-.mini-product-btn:hover { background: linear-gradient(90deg, #7f5fc5, #5c4dbc); box-shadow: 0 5px 15px rgba(133,109,209,0.7);}
 .brand-kit-container { background-color: #ffffff; padding: 1.5rem; border-radius: 15px; border: 1px solid #ddd; margin-top: 1rem;}
 </style>
 """, unsafe_allow_html=True)
@@ -87,7 +81,7 @@ smalltalk_questions = [
 
 interest_prompt = "I'd love to learn about your cultural interests! What are some things you care about like music, fashion, travel, gaming, or something else?"
 
-# BULLETPROOF SESSION STATE INITIALIZATION
+# FIXED SESSION STATE INITIALIZATION - ALL VARIABLES PROPERLY INITIALIZED
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "conversation_stage" not in st.session_state:
@@ -104,20 +98,14 @@ if "recommendation_service" not in st.session_state:
     st.session_state.recommendation_service = RecommendationService()
 if "explanation_service" not in st.session_state:
     st.session_state.explanation_service = ExplanationService()
-if "current_input" not in st.session_state:
-    st.session_state.current_input = ""
-if "clear_input" not in st.session_state:
-    st.session_state.clear_input = False
-if "input_counter" not in st.session_state:
-    st.session_state.input_counter = 0
 
-# CRITICAL: Loop prevention variables
-if "processing_input" not in st.session_state:
-    st.session_state.processing_input = False
-if "last_processed_input" not in st.session_state:
-    st.session_state.last_processed_input = ""
-if "execution_count" not in st.session_state:
-    st.session_state.execution_count = 0
+# CRITICAL FIX: Loop prevention and input clearing variables
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+if "last_user_input" not in st.session_state:
+    st.session_state.last_user_input = ""
+if "input_key" not in st.session_state:
+    st.session_state.input_key = 0
 
 # Initialize with friendly opener only once
 if len(st.session_state.messages) == 0:
@@ -272,34 +260,24 @@ if st.session_state.show_brand_kit_prompt:
             st.session_state.show_brand_kit_prompt = False
             st.session_state.conversation_stage = "post-brand-generation"
             st.rerun()
-if "input_counter" not in st.session_state:
-    st.session_state.input_counter = 0
-# BULLETPROOF CHAT INPUT - ZERO LOOP GUARANTEE
+
+# FIXED INPUT SECTION - AUTOMATIC CLEARING WITH DYNAMIC KEY
 col1, col2 = st.columns([6, 1])
 with col1:
     user_input = st.text_input("Your message:", "",
-        key=f"chat_input_{st.session_state.input_counter}",  # Dynamic key forces new widget
+        key=f"input_{st.session_state.input_key}",  # Dynamic key ensures clearing
         label_visibility="collapsed",
         placeholder="Type your message here..."
     )
-    # Update session state with current input
-    
 with col2:
     send_btn = st.button("✔️ Send")
 
-if st.session_state.clear_input:
-    st.session_state.clear_input = False
-# REVOLUTIONARY LOOP-PROOF INPUT PROCESSING
-if (user_input and send_btn and 
-    user_input.strip() != st.session_state.last_processed_input and 
-    not st.session_state.processing_input):
+# BULLETPROOF INPUT PROCESSING - SINGLE BLOCK, NO LOOPS
+if send_btn and user_input and user_input.strip() != st.session_state.last_user_input and not st.session_state.processing:
     
-    # Lock processing immediately
-    st.session_state.processing_input = True
-    st.session_state.last_processed_input = user_input.strip()
-    st.session_state.execution_count += 1
-    
-    print(f"🚀 Processing execution #{st.session_state.execution_count}: '{user_input}'")
+    # Lock processing to prevent concurrent execution
+    st.session_state.processing = True
+    st.session_state.last_user_input = user_input.strip()
     
     # Add user message
     st.session_state.messages.append({
@@ -418,53 +396,64 @@ if (user_input and send_btn and
                         st.session_state.conversation_stage = "collecting"
 
                 elif st.session_state.conversation_stage == "collecting":
-                        history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
+                    history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
+                    
+                    if "analyze" in user_input.lower() or history_len >= 3:
+                        prefs = extract_user_preferences(st.session_state.messages)
                         
-                        if "analyze" in user_input.lower() or history_len >= 3:
-                            prefs = extract_user_preferences(st.session_state.messages)
+                        with st.spinner("Analyzing your cultural DNA..."):
+                            analyzer = st.session_state.analyzer
+                            analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
+                            profile = getattr(analysis, 'cultural_profile', None)
+                        
+                        if profile and getattr(profile, 'cultural_segments', None):
+                            st.session_state.last_cultural_profile = profile
                             
-                            with st.spinner("Analyzing your cultural DNA..."):
-                                analyzer = st.session_state.analyzer
-                                analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
-                                profile = getattr(analysis, 'cultural_profile', None)
+                            # FIXED: Complete trend details display
+                            resp_lines = []
+                            resp_lines.append("Here's what I've learned about your trend vibe!\n")
+                            resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
+                            resp_lines.append(f"Timeframe: {getattr(analysis, 'timeframe', '90d')}")
+                            resp_lines.append("")
+                            resp_lines.append("**Top Trends**")
+                            resp_lines.append("")
                             
-                            if profile and getattr(profile, 'cultural_segments', None):
-                                st.session_state.last_cultural_profile = profile
+                            # Show full trend details for each prediction
+                            for i, pred in enumerate(analysis.predictions, 1):
+                                resp_lines.append(f"{i}. **{pred.predicted_trend}**")
+                                resp_lines.append(f"   - Category: {pred.product_category}")
+                                resp_lines.append(f"   - Confidence: {pred.confidence_score:.0f}%")
+                                resp_lines.append(f"   - Timeline: {pred.timeline_days:.0f} days")
+                                resp_lines.append(f"   - Target Audience: {', '.join(pred.target_audience)}")
                                 
-                                # FIXED: Complete trend details display
-                                resp_lines = []
-                                resp_lines.append("Here's what I've learned about your trend vibe!\n")
-                                resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
-                                resp_lines.append(f"Timeframe: {getattr(analysis, 'timeframe', '90d')}")
+                                # Add cultural reasoning if available
+                                reason = getattr(pred, 'cultural_reasoning', '')
+                                if reason:
+                                    resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
                                 resp_lines.append("")
-                                resp_lines.append("**Top Trends**")
-                                resp_lines.append("")
-                                
-                                # CRITICAL: Show full trend details for each prediction
-                                for i, pred in enumerate(analysis.predictions, 1):
-                                    resp_lines.append(f"{i}. **{pred.predicted_trend}**")
-                                    resp_lines.append(f"   - Category: {pred.product_category}")
-                                    resp_lines.append(f"   - Confidence: {pred.confidence_score:.0f}%")
-                                    resp_lines.append(f"   - Timeline: {pred.timeline_days:.0f} days")
-                                    resp_lines.append(f"   - Target Audience: {', '.join(pred.target_audience)}")
-                                    
-                                    # Add cultural reasoning if available
-                                    reason = getattr(pred, 'cultural_reasoning', '')
-                                    if reason:
-                                        resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
-                                    resp_lines.append("")
-                                
-                                resp_lines.append(f"**Your Cultural Segments:** {', '.join(profile.cultural_segments)}")
-                                resp_lines.append("Ready to create your Brand DNA? Click the button below!")
-                                
-                                st.session_state.messages.append({
-                                    "role": "assistant", "content": "\n".join(resp_lines),
-                                    "timestamp": datetime.now(), "type": "standard"
-                                })
-                                
-                                st.session_state.show_brand_kit_prompt = True
-                                st.session_state.conversation_stage = "post-analysis"
-                # GENIUS: Only respond to specific inputs
+                            
+                            resp_lines.append(f"**Your Cultural Segments:** {', '.join(profile.cultural_segments)}")
+                            resp_lines.append("Ready to create your Brand DNA? Click the button below!")
+                            
+                            st.session_state.messages.append({
+                                "role": "assistant", "content": "\n".join(resp_lines),
+                                "timestamp": datetime.now(), "type": "standard"
+                            })
+                            
+                            st.session_state.show_brand_kit_prompt = True
+                            st.session_state.conversation_stage = "post-analysis"
+                        else:
+                            st.session_state.messages.append({
+                                "role": "assistant", "content": "Could you tell me more about your interests?",
+                                "timestamp": datetime.now(), "type": "standard"
+                            })
+                    else:
+                        st.session_state.messages.append({
+                            "role": "assistant", "content": "Tell me more about your interests, or type 'analyze' when ready!",
+                            "timestamp": datetime.now(), "type": "standard"
+                        })
+                
+                # FIXED: Only respond to specific inputs to prevent loops
                 elif st.session_state.conversation_stage in ["post-analysis", "post-brand-generation"]:
                     if user_input.lower().strip() in ["hey", "hi", "hello", "help"]:
                         response = ("Hey! Your analysis is ready. Generate your Brand DNA below!" 
@@ -474,20 +463,18 @@ if (user_input and send_btn and
                             "role": "assistant", "content": response,
                             "timestamp": datetime.now(), "type": "standard"
                         })
-                    # Ignore all other inputs to prevent loops
-        
-        print(f"✅ Execution #{st.session_state.execution_count} completed successfully")
+                    # Ignore all other inputs to prevent automatic loops
         
     except Exception as e:
-        print(f"❌ Error in execution #{st.session_state.execution_count}: {e}")
+        print(f"❌ Error processing input: {e}")
         st.session_state.messages.append({
             "role": "assistant", "content": "Sorry, I encountered an error. Please try again!",
             "timestamp": datetime.now(), "type": "standard"
         })
     
     finally:
-        # Always unlock processing
-        st.session_state.input_counter += 1 
-        st.session_state.processing_input = False
-        print(f"🔄 Triggering rerun after execution #{st.session_state.execution_count}")
+        # CRITICAL: Increment input key to clear field and reset processing flag
+        st.session_state.input_key += 1
+        st.session_state.processing = False
+        # Single rerun at the very end
         st.rerun()
