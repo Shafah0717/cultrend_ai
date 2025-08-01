@@ -418,43 +418,52 @@ if (user_input and send_btn and
                         st.session_state.conversation_stage = "collecting"
 
                 elif st.session_state.conversation_stage == "collecting":
-                    history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
-                    
-                    if "analyze" in user_input.lower() or history_len >= 3:
-                        prefs = extract_user_preferences(st.session_state.messages)
+                        history_len = len([m for m in st.session_state.messages if m["role"] == "user"])
                         
-                        with st.spinner("Analyzing your cultural DNA..."):
-                            analyzer = st.session_state.analyzer
-                            analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
-                            profile = getattr(analysis, 'cultural_profile', None)
-                        
-                        if profile and getattr(profile, 'cultural_segments', None):
-                            st.session_state.last_cultural_profile = profile
+                        if "analyze" in user_input.lower() or history_len >= 3:
+                            prefs = extract_user_preferences(st.session_state.messages)
                             
-                            resp_lines = ["Here's what I've learned about your trend vibe!\n"]
-                            resp_lines.append(f"**Your Cultural Segments:** {', '.join(profile.cultural_segments)}")
-                            for i, pred in enumerate(analysis.predictions[:3], 1):
-                                resp_lines.append(f"{i}. {pred.predicted_trend} (Confidence: {pred.confidence_score:.0f}%)")
-                            resp_lines.append("\nReady to create your Brand DNA? Click the button below!")
+                            with st.spinner("Analyzing your cultural DNA..."):
+                                analyzer = st.session_state.analyzer
+                                analysis = asyncio.run(analyzer.predict_trends(prefs, "90d"))
+                                profile = getattr(analysis, 'cultural_profile', None)
                             
-                            st.session_state.messages.append({
-                                "role": "assistant", "content": "\n".join(resp_lines),
-                                "timestamp": datetime.now(), "type": "standard"
-                            })
-                            
-                            st.session_state.show_brand_kit_prompt = True
-                            st.session_state.conversation_stage = "post-analysis"
-                        else:
-                            st.session_state.messages.append({
-                                "role": "assistant", "content": "Could you tell me more about your interests?",
-                                "timestamp": datetime.now(), "type": "standard"
-                            })
-                    else:
-                        st.session_state.messages.append({
-                            "role": "assistant", "content": "Tell me more about your interests, or type 'analyze' when ready!",
-                            "timestamp": datetime.now(), "type": "standard"
-                        })
-                
+                            if profile and getattr(profile, 'cultural_segments', None):
+                                st.session_state.last_cultural_profile = profile
+                                
+                                # FIXED: Complete trend details display
+                                resp_lines = []
+                                resp_lines.append("Here's what I've learned about your trend vibe!\n")
+                                resp_lines.append(f"Average Confidence: {getattr(analysis, 'average_confidence', 0):.1f}%")
+                                resp_lines.append(f"Timeframe: {getattr(analysis, 'timeframe', '90d')}")
+                                resp_lines.append("")
+                                resp_lines.append("**Top Trends**")
+                                resp_lines.append("")
+                                
+                                # CRITICAL: Show full trend details for each prediction
+                                for i, pred in enumerate(analysis.predictions, 1):
+                                    resp_lines.append(f"{i}. **{pred.predicted_trend}**")
+                                    resp_lines.append(f"   - Category: {pred.product_category}")
+                                    resp_lines.append(f"   - Confidence: {pred.confidence_score:.0f}%")
+                                    resp_lines.append(f"   - Timeline: {pred.timeline_days:.0f} days")
+                                    resp_lines.append(f"   - Target Audience: {', '.join(pred.target_audience)}")
+                                    
+                                    # Add cultural reasoning if available
+                                    reason = getattr(pred, 'cultural_reasoning', '')
+                                    if reason:
+                                        resp_lines.append(f"   - Reason: {reason[:200].rstrip()}")
+                                    resp_lines.append("")
+                                
+                                resp_lines.append(f"**Your Cultural Segments:** {', '.join(profile.cultural_segments)}")
+                                resp_lines.append("Ready to create your Brand DNA? Click the button below!")
+                                
+                                st.session_state.messages.append({
+                                    "role": "assistant", "content": "\n".join(resp_lines),
+                                    "timestamp": datetime.now(), "type": "standard"
+                                })
+                                
+                                st.session_state.show_brand_kit_prompt = True
+                                st.session_state.conversation_stage = "post-analysis"
                 # GENIUS: Only respond to specific inputs
                 elif st.session_state.conversation_stage in ["post-analysis", "post-brand-generation"]:
                     if user_input.lower().strip() in ["hey", "hi", "hello", "help"]:
