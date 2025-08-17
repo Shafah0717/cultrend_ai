@@ -29,6 +29,7 @@ pip install -r requirements.txt
 
 1. **Set API Keys**  
    Save credentials in `.streamlit/secrets.toml`:
+</br>
 [qloo]
 api_key = "YOUR_QLOO_API_KEY"
 
