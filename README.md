@@ -99,4 +99,4 @@ cultrend-ai/
 
 ---
 
-**[Repository Link](https://github.com/Shafah0717/cultrend_ai/))**
+**[Repository Link](https://github.com/Shafah0717/cultrend_ai/)**
