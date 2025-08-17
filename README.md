@@ -19,7 +19,9 @@ An interactive Streamlit application for cultural trend discovery, personalized 
 ## Installation
 
 git clone https://github.com/Shafah0717/cultrend_ai.git
+</br>
 cd cultrend-ai
+</br>
 pip install -r requirements.txt
 
 
