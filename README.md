@@ -18,11 +18,10 @@ An interactive Streamlit application for cultural trend discovery, personalized 
 
 ## Installation
 
-git clone https://github.com/yourusername/cultrend-ai.git
+git clone https://github.com/Shafah0717/cultrend_ai.git
 cd cultrend-ai
 pip install -r requirements.txt
 
-text
 
 ---
 
@@ -36,12 +35,12 @@ api_key = "YOUR_QLOO_API_KEY"
 [gemini]
 api_key = "YOUR_GEMINI_API_KEY"
 
-text
+
 
 2. **Run the Dashboard**
 streamlit run dashboard.py
 
-text
+
 
 3. **Interacting**
 - First AI message is a friendly opener
@@ -54,6 +53,7 @@ text
 ##  Folder Structure
 
 cultrend-ai/
+</br>
 ├── dashboard.py
 ├── models/
 ├── services/
@@ -62,7 +62,7 @@ cultrend-ai/
 ├── requirements.txt
 └── .streamlit/
 
-text
+
 
 ---
 
@@ -90,4 +90,4 @@ text
 
 ---
 
-**[Repository Link](https://github.com/yourusername/cultrend-ai)**
+**[Repository Link](https://github.com/Shafah0717/cultrend_ai/))**
