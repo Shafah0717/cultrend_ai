@@ -55,11 +55,17 @@ streamlit run dashboard.py
 cultrend-ai/
 </br>
 ├── dashboard.py
+</br>
 ├── models/
+</br>
 ├── services/
+</br>
 ├── content/
+</br>
 ├── static/
+</br>
 ├── requirements.txt
+</br>
 └── .streamlit/
 
 
